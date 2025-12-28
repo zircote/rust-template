@@ -23,8 +23,8 @@ path = "src/main.rs"
 
 [dependencies]
 # Core dependencies
-thiserror = "2.0"
-anyhow = "1.0"
+thiserror = "2.0.17"
+anyhow = "1.0.100"
 
 # Async runtime (uncomment if needed)
 # tokio = { version = "1.0", features = ["full"] }
@@ -39,8 +39,8 @@ anyhow = "1.0"
 
 [dev-dependencies]
 # Testing
-proptest = "1.5"
-test-case = "3.3"
+proptest = "1.9.0"
+test-case = "3.3.1"
 
 # Async testing (uncomment if using tokio)
 # tokio-test = "0.4"
