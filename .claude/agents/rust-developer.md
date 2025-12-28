@@ -14,7 +14,7 @@ You are the primary development agent for this Rust project. Your responsibiliti
 ## Project Context
 
 This is a modern Rust project using:
-- **Rust 2024 edition** (MSRV 1.85)
+- **Rust 2024 edition** (MSRV 1.80)
 - **Cargo** for package management
 - **clippy** for linting
 - **rustfmt** for formatting
