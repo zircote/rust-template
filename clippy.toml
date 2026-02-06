@@ -5,7 +5,7 @@
 cognitive-complexity-threshold = 25
 
 # Maximum allowed nesting depth
-max-nesting-depth = 4
+excessive-nesting-threshold = 4
 
 # Maximum number of lines in a function
 too-many-lines-threshold = 100
@@ -13,8 +13,11 @@ too-many-lines-threshold = 100
 # Maximum number of arguments a function or method can have
 too-many-arguments-threshold = 7
 
-# Maximum number of struct fields
+# Maximum number of bools in struct fields
 max-struct-bools = 3
+
+# Maximum number of bool function parameters
+max-fn-params-bools = 3
 
 # Warn on large types passed by value
 pass-by-value-size-limit = 256
@@ -32,7 +35,7 @@ allow-unwrap-in-tests = true
 allow-print-in-tests = true
 
 # MSRV for lint behavior
-msrv = "1.80"
+msrv = "1.92"
 
 # Type complexity threshold
 type-complexity-threshold = 250

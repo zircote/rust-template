@@ -1,38 +1,16 @@
-//! # {{crate_name}}
-//!
-//! A Rust crate description.
-//!
-//! ## Features
-//!
-//! - Feature 1
-//! - Feature 2
-//! - Feature 3
-//!
-//! ## Example
-//!
-//! ```rust
-//! use {{crate_name}}::add;
-//!
-//! let result = add(2, 3);
-//! assert_eq!(result, 5);
-//! ```
-
 #![doc = include_str!("../README.md")]
-#![deny(clippy::all)]
-#![warn(clippy::pedantic)]
-#![warn(clippy::nursery)]
-#![warn(missing_docs)]
-#![forbid(unsafe_code)]
 
-use std::error::Error as StdError;
-use std::fmt;
+use thiserror::Error;
 
-/// Error type for {{crate_name}} operations.
-#[derive(Debug)]
+/// Error type for `rust_template` operations.
+#[derive(Error, Debug)]
 pub enum Error {
     /// Invalid input was provided.
+    #[error("invalid input: {0}")]
     InvalidInput(String),
+
     /// An operation failed.
+    #[error("operation '{operation}' failed: {cause}")]
     OperationFailed {
         /// The operation that failed.
         operation: String,
@@ -41,20 +19,7 @@ pub enum Error {
     },
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidInput(msg) => write!(f, "invalid input: {msg}"),
-            Self::OperationFailed { operation, cause } => {
-                write!(f, "operation '{operation}' failed: {cause}")
-            }
-        }
-    }
-}
-
-impl StdError for Error {}
-
-/// Result type alias for {{crate_name}} operations.
+/// Result type alias for `rust_template` operations.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Adds two numbers together.
@@ -71,7 +36,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// # Examples
 ///
 /// ```rust
-/// use {{crate_name}}::add;
+/// use rust_template::add;
 ///
 /// assert_eq!(add(2, 3), 5);
 /// assert_eq!(add(-1, 1), 0);
@@ -99,7 +64,7 @@ pub const fn add(a: i64, b: i64) -> i64 {
 /// # Examples
 ///
 /// ```rust
-/// use {{crate_name}}::divide;
+/// use rust_template::divide;
 ///
 /// assert_eq!(divide(10, 2).unwrap(), 5);
 /// assert!(divide(10, 0).is_err());
@@ -112,7 +77,7 @@ pub fn divide(dividend: i64, divisor: i64) -> Result<i64> {
 }
 
 /// Configuration for the crate.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Config {
     /// Enable verbose logging.
     pub verbose: bool,
@@ -120,6 +85,12 @@ pub struct Config {
     pub max_retries: u32,
     /// Timeout in seconds.
     pub timeout_secs: u64,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Config {
@@ -178,10 +149,7 @@ mod tests {
     fn test_divide_by_zero() {
         let result = divide(10, 0);
         assert!(result.is_err());
-        match result.unwrap_err() {
-            Error::InvalidInput(msg) => assert!(msg.contains("zero")),
-            _ => panic!("Expected InvalidInput error"),
-        }
+        assert!(matches!(result, Err(Error::InvalidInput(ref msg)) if msg.contains("zero")));
     }
 
     #[test]

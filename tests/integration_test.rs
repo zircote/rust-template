@@ -1,6 +1,6 @@
-//! Integration tests for {{crate_name}}.
+//! Integration tests for `rust_template`.
 
-use {{crate_name}}::{add, divide, Config, Error, Result};
+use rust_template::{Config, Error, Result, add, divide};
 
 #[test]
 fn test_add_integration() {
@@ -30,12 +30,10 @@ fn test_divide_integration() {
 fn test_divide_by_zero() {
     let result = divide(42, 0);
     assert!(result.is_err());
-
-    if let Err(Error::InvalidInput(msg)) = result {
-        assert!(msg.contains("zero"), "Error message should mention zero");
-    } else {
-        panic!("Expected InvalidInput error");
-    }
+    assert!(
+        matches!(result, Err(Error::InvalidInput(ref msg)) if msg.contains("zero")),
+        "Expected InvalidInput error with message containing 'zero'"
+    );
 }
 
 #[test]

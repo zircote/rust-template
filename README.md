@@ -1,18 +1,18 @@
-# {{crate_name}}
+# `rust_template`
 
 <!-- Badges -->
 [![GitHub Template](https://img.shields.io/badge/template-zircote%2Frust--template-blue?logo=github)](https://github.com/zircote/rust-template)
-[![CI](https://github.com/zircote/{{crate_name}}/actions/workflows/ci.yml/badge.svg)](https://github.com/zircote/{{crate_name}}/actions/workflows/ci.yml)
-[![Crates.io](https://img.shields.io/crates/v/{{crate_name}}.svg?logo=rust&logoColor=white)](https://crates.io/crates/{{crate_name}})
-[![Documentation](https://docs.rs/{{crate_name}}/badge.svg)](https://docs.rs/{{crate_name}})
-[![Rust Version](https://img.shields.io/badge/rust-1.80%2B-dea584?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![CI](https://github.com/zircote/rust-template/actions/workflows/ci.yml/badge.svg)](https://github.com/zircote/rust-template/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/rust_template.svg?logo=rust&logoColor=white)](https://crates.io/crates/rust_template)
+[![Documentation](https://docs.rs/rust_template/badge.svg)](https://docs.rs/rust_template)
+[![Rust Version](https://img.shields.io/badge/rust-1.92%2B-dea584?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Clippy](https://img.shields.io/badge/linting-clippy-orange?logo=rust&logoColor=white)](https://github.com/rust-lang/rust-clippy)
 [![cargo-deny](https://img.shields.io/badge/security-cargo--deny-blue?logo=rust&logoColor=white)](https://github.com/EmbarkStudios/cargo-deny)
 [![Security: gitleaks](https://img.shields.io/badge/security-gitleaks-blue?logo=git&logoColor=white)](https://github.com/gitleaks/gitleaks)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://docs.github.com/en/code-security/dependabot)
 
-A Rust crate description.
+A Rust template crate with modern tooling and best practices.
 
 ## Features
 
@@ -26,21 +26,21 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-{{crate_name}} = "0.1"
+rust_template = "0.1"
 ```
 
 Or use cargo add:
 
 ```bash
-cargo add {{crate_name}}
+cargo add rust_template
 ```
 
 ## Quick Start
 
 ```rust
-use {{crate_name}}::{add, divide, Config};
+use rust_template::{add, divide, Config};
 
-fn main() -> Result<(), {{crate_name}}::Error> {
+fn main() -> Result<(), rust_template::Error> {
     // Basic arithmetic
     let sum = add(2, 3);
     println!("2 + 3 = {}", sum);
@@ -79,15 +79,15 @@ fn main() -> Result<(), {{crate_name}}::Error> {
 
 ### Prerequisites
 
-- Rust 1.80+ (2024 edition)
+- Rust 1.92+ (2024 edition)
 - [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) for supply chain security
 
 ### Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/zircote/{{crate_name}}.git
-cd {{crate_name}}
+git clone https://github.com/zircote/rust-template.git
+cd rust-template
 
 # Build
 cargo build
@@ -110,7 +110,7 @@ cargo doc --open
 
 ### Project Structure
 
-```
+```text
 src/
 ├── lib.rs           # Library entry point
 ├── main.rs          # Binary entry point
@@ -153,7 +153,7 @@ cargo +nightly miri test
 
 ## MSRV Policy
 
-The Minimum Supported Rust Version (MSRV) is **1.80**. Increasing the MSRV is considered a minor breaking change.
+The Minimum Supported Rust Version (MSRV) is **1.92**. Increasing the MSRV is considered a minor breaking change.
 
 ## Contributing
 
