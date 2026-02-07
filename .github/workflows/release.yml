@@ -125,6 +125,7 @@ jobs:
              "${{ matrix.asset_name }}"
 
       - name: Upload release asset
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
