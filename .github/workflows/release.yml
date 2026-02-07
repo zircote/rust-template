@@ -34,7 +34,7 @@ jobs:
       - name: Generate changelog
         id: changelog
         # v4.5.0
-        uses: orhun/git-cliff-action@2032a55a2e7c76b12f13fd1dfe8b9e44fcf84e94
+        uses: orhun/git-cliff-action@e615672902de82edb33eddcb803a1295fc409525
         with:
           config: cliff.toml
           args: --latest --strip header
