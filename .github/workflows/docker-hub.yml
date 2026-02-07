@@ -1,9 +1,12 @@
 name: Docker Hub Multi-Registry
 
+# Disabled by default — this template uses GHCR via docker.yml.
+# To enable, uncomment the push trigger and configure DOCKERHUB_USERNAME
+# and DOCKERHUB_TOKEN secrets.
 on:
-  push:
-    tags:
-      - 'v*'
+  # push:
+  #   tags:
+  #     - 'v*'
   workflow_dispatch:
 
 permissions:
