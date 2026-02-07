@@ -1,0 +1,50 @@
+---
+name: Changelog
+
+"on":
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        # v6.0.2
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        # v4.5.0
+        uses: orhun/git-cliff-action@2032a55a2e7c76b12f13fd1dfe8b9e44fcf84e94
+        with:
+          config: cliff.toml
+          args: --verbose
+        env:
+          OUTPUT: CHANGELOG.md
+
+      - name: Commit changelog
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          set +e
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG.md for ${TAG_NAME}"
+
+          if [ $? -eq 0 ]; then
+            git push origin HEAD:main
+            echo "Changelog updated and pushed"
+          else
+            echo "No changes to commit"
+          fi

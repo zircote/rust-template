@@ -157,6 +157,68 @@ cargo deny check
 cargo +nightly miri test
 ```
 
+## CI/CD and Deployment
+
+This template includes production-ready workflows:
+
+### Continuous Integration
+
+- **CI** (`.github/workflows/ci.yml`) - Format, lint, test, docs, supply chain security, MSRV check, coverage
+- **Security Audit** (`.github/workflows/security-audit.yml`) - Daily cargo-audit scans
+- **Benchmark** (`.github/workflows/benchmark.yml`) - Performance tracking with criterion
+- **ADR Validation** (`.github/workflows/adr-validation.yml`) - Architectural decision records validation
+
+### Release and Deployment
+
+- **Release** (`.github/workflows/release.yml`) - Automated GitHub releases with multi-platform binaries
+  - Builds for: Linux (x86_64, ARM64), macOS (x86_64, ARM64), Windows (x86_64)
+  - Automatic changelog generation
+  - Binary artifacts uploaded to releases
+
+- **Changelog** (`.github/workflows/changelog.yml`) - Automated CHANGELOG.md generation
+  - Uses git-cliff with conventional commits
+  - Follows Keep a Changelog format
+  - Triggered on version tags
+
+- **Docker** (`.github/workflows/docker.yml`) - Multi-platform container builds
+  - Platforms: linux/amd64, linux/arm64
+  - Distroless base image for security
+  - Published to GitHub Container Registry (ghcr.io)
+  - Tagged with version and 'latest'
+
+- **Publish** (`.github/workflows/publish.yml`) - Automated crates.io publishing
+  - Full pre-publish validation
+  - Triggered on version tags
+  - Requires `CARGO_REGISTRY_TOKEN` secret
+
+### Creating a Release
+
+1. Update version in `Cargo.toml`
+2. Create and push a version tag:
+   ```bash
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   git push origin v0.2.0
+   ```
+3. Workflows automatically:
+   - Generate changelog
+   - Build binaries for all platforms
+   - Create GitHub release with artifacts
+   - Build and push Docker images
+   - Publish to crates.io
+
+### Docker Usage
+
+Pull and run the container:
+
+```bash
+# Pull latest
+docker pull ghcr.io/zircote/rust-template:latest
+
+# Run specific version
+docker pull ghcr.io/zircote/rust-template:v0.1.0
+docker run --rm ghcr.io/zircote/rust-template:v0.1.0 --version
+```
+
 ## MSRV Policy
 
 The Minimum Supported Rust Version (MSRV) is **1.92**. Increasing the MSRV is considered a minor breaking change.
