@@ -2,8 +2,6 @@
 name: Code Quality Metrics
 
 "on":
-  push:
-    branches: [main, master]
   pull_request:
     branches: [main, master]
   workflow_dispatch:

@@ -2,8 +2,8 @@
 name: Stale Issue Management
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # Daily
+  # schedule:
+  #   - cron: '0 0 * * *'  # Daily
   workflow_dispatch:
 
 permissions:

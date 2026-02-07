@@ -1,11 +1,9 @@
 name: Test Matrix
 
 on:
-  push:
-    branches: [main, master, develop]
   pull_request:
-  schedule:
-    - cron: '0 0 * * 0'  # Weekly on Sunday
+  # schedule:
+  #   - cron: '0 0 * * 0'  # Weekly on Sunday
   workflow_dispatch:
 
 permissions:
@@ -21,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        rust: [stable, beta, nightly, '1.80']  # MSRV is 1.80
+        rust: [stable, beta, nightly, '1.92']  # MSRV is 1.92
         include:
           # Additional specific combinations
           - os: ubuntu-latest

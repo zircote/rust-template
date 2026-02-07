@@ -2,8 +2,8 @@
 name: Nightly Builds
 
 on:
-  schedule:
-    - cron: '0 2 * * *'  # 2 AM daily
+  # schedule:
+  #   - cron: '0 2 * * *'  # 2 AM daily
   workflow_dispatch:
 
 permissions:

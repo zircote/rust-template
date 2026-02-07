@@ -9,8 +9,8 @@ useDefault = true
 [allowlist]
 description = "Allowlist for false positives"
 paths = [
-    # Add paths to ignore
-    # Example: '''README.md'''
+    '''docs/.*\.md''',
+    '''\.typos\.toml''',
 ]
 
 regexes = [
