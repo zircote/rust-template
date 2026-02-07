@@ -1,79 +1,35 @@
 # cargo-deny configuration
 # https://embarkstudios.github.io/cargo-deny/
 
-# Root options
 [graph]
-# Target platforms to check (add more as needed)
+# Target platforms to check
 targets = [
-    { triple = "x86_64-unknown-linux-gnu" },
-    { triple = "x86_64-unknown-linux-musl" },
-    { triple = "aarch64-unknown-linux-gnu" },
-    { triple = "x86_64-apple-darwin" },
-    { triple = "aarch64-apple-darwin" },
-    { triple = "x86_64-pc-windows-msvc" },
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
 ]
+all-features = false
+no-default-features = false
 
-# Exclude dev-dependencies from analysis
-exclude-dev = true
-
-# Depth of features to analyze
-feature-depth = 1
-
-# Output configuration
 [output]
-# Show feature resolution graph
 feature-depth = 1
 
-#==============================================================================
-# Advisories - Security vulnerability and unmaintained crate detection
-#==============================================================================
 [advisories]
-# Path to the local advisory database (uses default if not specified)
-db-path = "~/.cargo/advisory-db"
-
-# URL(s) to the advisory database
-db-urls = ["https://github.com/rustsec/advisory-db"]
-
-# Deny any crate with known vulnerabilities
-vulnerability = "deny"
-
-# Deny unmaintained crates
-unmaintained = "warn"
-
-# Deny crates that have been yanked
-yanked = "deny"
-
-# Warn on crates with no security contact
-notice = "warn"
-
-# How to handle crates that aren't in the advisory database
+version = 2
+# Check for security advisories
+# All advisory types (vulnerability, unmaintained, unsound, notice, yanked) default to deny
 ignore = []
 
-# Ignore advisories for specific crates (with justification required)
-# [[advisories.ignore]]
-# id = "RUSTSEC-XXXX-XXXX"
-# reason = "Justification for ignoring this advisory"
-
-#==============================================================================
-# Licenses - Allowed and denied licenses
-#==============================================================================
 [licenses]
+version = 2
 # Confidence threshold for license detection
 confidence-threshold = 0.8
 
-# Deny crates without a license
-unlicensed = "deny"
-
-# Copyleft licenses require careful consideration
-copyleft = "warn"
-
-# Default license to use when ambiguous
-default = "deny"
-
-# Private crates are allowed to be unlicensed
-private = { ignore = true }
-
 # List of allowed licenses (SPDX identifiers)
+# All licenses not listed here are automatically denied
 allow = [
     "MIT",
     "Apache-2.0",
@@ -90,68 +46,36 @@ allow = [
     "0BSD",
 ]
 
-# Explicitly deny problematic licenses
-deny = [
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-3.0",
-]
-
 # License exceptions for specific crates
 [[licenses.clarify]]
 name = "ring"
 expression = "MIT AND ISC AND OpenSSL"
 license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
 
-#==============================================================================
-# Bans - Crate-level bans
-#==============================================================================
 [bans]
 # Deny multiple versions of the same crate
 multiple-versions = "warn"
-
-# Highlight the crate with the highest version when multiple exist
+# Deny wildcard dependencies
+wildcards = "deny"
+# Highlight the crate with the highest version
 highlight = "all"
 
-# Allow wildcard dependencies (not recommended)
-wildcards = "deny"
-
-# Allow workspace crates to reference each other
-workspace-default-features = "allow"
-external-default-features = "allow"
-
-# Deny specific crates
+# Deny specific problematic crates
 deny = [
-    # Unmaintained crates
-    { name = "openssl", reason = "Use rustls instead for TLS" },
-    { name = "atty", reason = "Use std::io::IsTerminal instead" },
-
-    # Crates with known issues
-    { name = "chrono", wrappers = [], reason = "Use time crate instead for better safety" },
+    { name = "openssl", wrappers = [], reason = "Use rustls for TLS instead" },
+    { name = "atty", wrappers = [], reason = "Use std::io::IsTerminal instead (available in Rust 1.70+)" },
 ]
 
-# Skip duplicates for certain crates
 skip = []
-
-# Allow specific duplicate versions
 skip-tree = []
 
-#==============================================================================
-# Sources - Allowed crate sources
-#==============================================================================
 [sources]
 # Deny crates from unknown sources
 unknown-registry = "deny"
-
-# Deny crates from unknown git repositories
 unknown-git = "deny"
 
 # Allow crates.io
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 
-# Allow specific git repositories
+# Allow specific git repositories (add as needed)
 allow-git = []
-
-# Allow specific organizations (for private registries)
-[sources.allow-org]
-# github = []
