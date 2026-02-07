@@ -5,7 +5,7 @@ This document provides context for GitHub Copilot when working with this Rust pr
 ## Project Context
 
 This is a Rust crate using modern tooling:
-- **Rust**: 1.80+ (2024 edition)
+- **Rust**: 1.92+ (2024 edition)
 - **Build System**: Cargo
 - **Linting**: clippy with pedantic and nursery lints
 - **Formatting**: rustfmt
@@ -87,12 +87,12 @@ Use doc comments with examples:
 /// # Examples
 ///
 /// ```rust
-/// use {{crate_name}}::{process, Config};
+/// use rust_template::{process, Config};
 ///
 /// let items = vec!["a", "b", "c"];
 /// let config = Config::default();
 /// let result = process(&items, &config)?;
-/// # Ok::<(), {{crate_name}}::Error>(())
+/// # Ok::<(), rust_template::Error>(())
 /// ```
 pub fn process(items: &[&str], config: &Config) -> Result<Vec<Item>> {
     // implementation
