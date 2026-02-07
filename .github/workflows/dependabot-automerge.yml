@@ -1,13 +1,8 @@
-# Dependabot Auto-Merge
-# Automatically approves and merges Dependabot PRs after CI passes
-#
-# This workflow calls the centralized auto-merge workflow from zircote/.github
-# Requires repository setting "Allow auto-merge" to be enabled
 
 name: Dependabot Auto-Merge
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -15,6 +10,19 @@ permissions:
   pull-requests: write
 
 jobs:
-  automerge:
-    uses: zircote/.github/.github/workflows/reusable-dependabot-automerge.yml@main
-    secrets: inherit
+  auto-merge:
+    name: Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@5e5f99653a5b510e8555840e80cbf1514ad4af38 # v2.2.0
+
+      - name: Auto-merge patch and minor updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
