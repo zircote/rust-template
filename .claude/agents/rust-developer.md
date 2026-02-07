@@ -25,7 +25,7 @@ This is a modern Rust project using:
 ### Before Writing Code
 1. Read CLAUDE.md to understand project conventions
 2. Review Cargo.toml for dependencies and features
-3. Check existing code patterns in `src/`
+3. Check existing code patterns in `crates/`
 
 ### Ownership & Borrowing
 - Prefer borrowing over ownership when possible

@@ -21,7 +21,7 @@ You are responsible for the testing infrastructure and test quality in this Rust
 ## Test Organization
 
 ```
-src/
+crates/
 ├── lib.rs
 │   └── mod tests { }     # Unit tests alongside code
 ├── module.rs

@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Structure
 
 ```
-src/
+crates/
 ├── lib.rs           # Library entry point and public API
 ├── main.rs          # Binary entry point (optional)
 ├── error.rs         # Error types (if separated)
@@ -213,7 +213,7 @@ impl Config {
 
 ## Testing Conventions
 
-- **Unit tests**: Inside `src/*.rs` with `#[cfg(test)]` modules
+- **Unit tests**: Inside `crates/*.rs` with `#[cfg(test)]` modules
 - **Integration tests**: `tests/` directory
 - **Doc tests**: Examples in documentation
 - **Property tests**: Use `proptest` for property-based testing

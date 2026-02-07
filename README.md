@@ -111,7 +111,7 @@ cargo doc --open
 ### Project Structure
 
 ```text
-src/
+crates/
 ├── lib.rs           # Library entry point
 ├── main.rs          # Binary entry point
 └── ...              # Additional modules

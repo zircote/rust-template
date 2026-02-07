@@ -251,9 +251,9 @@ pub const fn new() -> Self {
 
 ## File Locations
 
-- Source code: `src/`
-- Library entry: `src/lib.rs`
-- Binary entry: `src/main.rs`
+- Source code: `crates/`
+- Library entry: `crates/lib.rs`
+- Binary entry: `crates/main.rs`
 - Integration tests: `tests/`
 - Benchmarks: `benches/` (with criterion)
 

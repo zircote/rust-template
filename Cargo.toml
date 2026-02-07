@@ -15,11 +15,11 @@ categories = ["development-tools"]
 
 [lib]
 name = "rust_template"
-path = "src/lib.rs"
+path = "crates/lib.rs"
 
 [[bin]]
 name = "rust_template"
-path = "src/main.rs"
+path = "crates/main.rs"
 
 [dependencies]
 # Core dependencies
