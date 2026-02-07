@@ -6,7 +6,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rust_template.svg?logo=rust&logoColor=white)](https://crates.io/crates/rust_template)
 [![Documentation](https://docs.rs/rust_template/badge.svg)](https://docs.rs/rust_template)
 [![Rust Version](https://img.shields.io/badge/rust-1.92%2B-dea584?logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/zircote/rust-template/blob/main/LICENSE)
 [![Clippy](https://img.shields.io/badge/linting-clippy-orange?logo=rust&logoColor=white)](https://github.com/rust-lang/rust-clippy)
 [![cargo-deny](https://img.shields.io/badge/security-cargo--deny-blue?logo=rust&logoColor=white)](https://github.com/EmbarkStudios/cargo-deny)
 [![Security: gitleaks](https://img.shields.io/badge/security-gitleaks-blue?logo=git&logoColor=white)](https://github.com/gitleaks/gitleaks)
@@ -176,7 +176,7 @@ Please ensure your PR:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/zircote/rust-template/blob/main/LICENSE) file for details.
 
 ## Acknowledgments
 
