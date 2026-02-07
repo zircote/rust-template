@@ -75,7 +75,7 @@ This project uses **clippy** with pedantic and nursery lints, and **rustfmt** fo
 
 - **Line length**: 100 characters
 - **Edition**: 2024
-- **MSRV**: 1.80
+- **MSRV**: 1.92
 - **Unsafe code**: Forbidden unless explicitly justified
 - **Panics**: Not allowed in library code (`unwrap`, `expect`, `panic!`)
 

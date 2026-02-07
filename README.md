@@ -16,9 +16,11 @@ A Rust template crate with modern tooling and best practices.
 
 ## Features
 
-- Feature 1
-- Feature 2
-- Feature 3
+- **Type-safe error handling** with `thiserror` for clear error types
+- **Builder pattern** for configuration with compile-time const functions
+- **Comprehensive testing** including unit, integration, and property-based tests
+- **Modern tooling** with clippy pedantic lints and cargo-deny supply chain security
+- **Full documentation** with examples in all public APIs
 
 ## Installation
 
@@ -52,7 +54,11 @@ fn main() -> Result<(), rust_template::Error> {
     // Using configuration builder
     let config = Config::new()
         .with_verbose(true)
-        .with_max_retries(5);
+        .with_max_retries(5)
+        .with_timeout(60);
+
+    println!("Config: verbose={}, retries={}, timeout={}s",
+        config.verbose, config.max_retries, config.timeout_secs);
 
     Ok(())
 }
