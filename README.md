@@ -171,7 +171,7 @@ This template includes production-ready workflows:
 ### Release and Deployment
 
 - **Release** (`.github/workflows/release.yml`) - Automated GitHub releases with multi-platform binaries
-  - Builds for: Linux (x86_64, ARM64), macOS (x86_64, ARM64), Windows (x86_64)
+  - Builds for: Linux (`x86_64`, ARM64), macOS (`x86_64`, ARM64), Windows (`x86_64`)
   - Automatic changelog generation
   - Binary artifacts uploaded to releases
 
