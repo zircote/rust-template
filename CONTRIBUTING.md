@@ -48,6 +48,42 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/):
 The changelog is generated from these prefixes via
 [git-cliff](https://git-cliff.org/).
 
+## Commit Signing
+
+This project encourages signed commits. Signed commits display a
+"Verified" badge on GitHub, confirming the committer's identity.
+
+### SSH key signing (recommended)
+
+Most developers already have SSH keys, making this the simplest
+option:
+
+```bash
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+```
+
+Then upload the same public key as a **Signing Key** at
+<https://github.com/settings/ssh/new> (select "Signing Key" as the
+key type).
+
+### gitsign (keyless, Sigstore OIDC)
+
+For fully keyless signing via your GitHub/Google/Microsoft identity:
+
+```bash
+brew install sigstore/tap/gitsign          # macOS
+# or: go install github.com/sigstore/gitsign@latest
+
+git config --global gpg.format x509
+git config --global gpg.x509.program gitsign
+git config --global commit.gpgsign true
+```
+
+Each commit opens a browser for OIDC authentication. No keys to
+manage.
+
 ## Pull Request Checklist
 
 Before submitting a PR, ensure:
@@ -60,6 +96,7 @@ Before submitting a PR, ensure:
 - [ ] Public items have documentation with `# Examples` and `# Errors`
 - [ ] No `unwrap()`, `expect()`, or `panic!()` in library code
 - [ ] Error types use `thiserror`
+- [ ] Commits are signed (see [Commit Signing](#commit-signing))
 
 ## Code Style
 

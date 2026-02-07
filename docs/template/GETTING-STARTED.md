@@ -172,7 +172,36 @@ Most workflows use only the automatic `GITHUB_TOKEN`. Optional workflows require
 
 ---
 
-## 8. Next Steps
+## 8. Enable Commit Signing
+
+The template's release workflows already sign artifacts with Sigstore
+Cosign and generate SLSA Level 3 provenance. To extend signing to
+individual commits:
+
+**Enable in branch protection:**
+
+- [ ] Go to **Settings > Branches > Branch protection rules** for
+  `main`.
+- [ ] Check **"Require signed commits"**.
+
+This ensures all commits merged into `main` carry a verified
+signature.
+
+**Contributor setup:**
+
+- [ ] Point contributors to the
+  [Commit Signing](../../CONTRIBUTING.md#commit-signing) section for
+  SSH key or gitsign configuration.
+
+**Enable vigilant mode (recommended for maintainers):**
+
+- [ ] Go to **Settings > SSH and GPG keys** on your GitHub profile.
+- [ ] Enable **Vigilant mode** so unsigned commits display an
+  "Unverified" badge, making it easy to spot gaps.
+
+---
+
+## 9. Next Steps
 
 You have a building, tested, CI-validated Rust project. Here is where to go from here:
 
