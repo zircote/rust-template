@@ -33,18 +33,30 @@ jobs:
 
       - name: Commit changelog
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          set +e
-          git add CHANGELOG.md
-          git commit -m "docs: update CHANGELOG.md for ${TAG_NAME}"
-
-          if [ $? -eq 0 ]; then
-            git push origin HEAD:main
-            echo "Changelog updated and pushed"
-          else
+          if git diff --quiet CHANGELOG.md 2>/dev/null; then
             echo "No changes to commit"
+            exit 0
           fi
+
+          REPO="${{ github.repository }}"
+          API_PATH="repos/${REPO}/contents/CHANGELOG.md"
+          CONTENT=$(base64 -i CHANGELOG.md)
+          SHA=$(gh api "$API_PATH" \
+            --jq '.sha' 2>/dev/null || echo "")
+
+          MSG="docs: update CHANGELOG.md for ${TAG_NAME}"
+          ARGS=(
+            -f "message=${MSG}"
+            -f "content=${CONTENT}"
+            -f "branch=main"
+          )
+          if [ -n "$SHA" ]; then
+            ARGS+=(-f "sha=${SHA}")
+          fi
+
+          gh api "$API_PATH" \
+            --method PUT "${ARGS[@]}"
+          echo "Changelog updated via GitHub API"
