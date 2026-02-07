@@ -118,13 +118,18 @@ jobs:
               "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}"
           fi
 
+      - name: Rename binary for release
+        shell: bash
+        run: |
+          cp "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}" \
+             "${{ matrix.asset_name }}"
+
       - name: Upload release asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release upload "${{ github.ref_name }}"
-          "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}#${{ matrix.asset_name }}"
-          --clobber
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            "${{ matrix.asset_name }}" --clobber
 
       - name: Upload artifact
         # v4.6.2
