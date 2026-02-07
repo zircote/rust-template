@@ -84,11 +84,8 @@ fn process_numbers(a: i64, b: i64) -> Result<i64> {
 
 #[test]
 fn test_result_chaining() {
-    // Successful case
     let result = process_numbers(10, 6);
     assert_eq!(result.unwrap(), 8);
-
-    // Error case (would need different logic to trigger)
 }
 
 mod property_tests {

@@ -4,293 +4,92 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-{{crate_name}} is a Rust crate built with modern tooling, strict type safety, and zero-cost abstractions.
-
-## Project Structure
-
-```
-crates/
-├── lib.rs           # Library entry point and public API
-├── main.rs          # Binary entry point (optional)
-├── error.rs         # Error types (if separated)
-└── ...              # Additional modules
-
-tests/
-└── integration_test.rs  # Integration tests
-
-benches/              # Benchmarks (with criterion)
-examples/             # Example programs
-```
+This is a **GitHub template repository** for Rust crates. The crate name is `rust_template` (Rust edition 2024, MSRV 1.92). It ships both a library (`crates/lib.rs`) and a binary (`crates/main.rs`). Source lives in `crates/`, not the standard `src/` directory.
 
 ## Build Commands
 
-This project uses [Cargo](https://doc.rust-lang.org/cargo/) as the build system.
+[`just`](https://github.com/casey/just) is the local task runner. Run `just` to list all recipes.
 
 ```bash
-# Build the project
-cargo build
+just                  # List all recipes
+just check            # Full CI check (fmt + clippy + test + doc + deny)
+just test             # Run all tests
+just lint             # Clippy with CI flags
+just fmt              # Format code
+just deny             # Supply chain audit
+just coverage         # LCOV coverage report
+just msrv             # Check against MSRV 1.92
+just miri             # Miri undefined behavior detection
+```
 
-# Build with optimizations
-cargo build --release
+<details>
+<summary>Raw cargo commands</summary>
 
-# Run tests
-cargo test
+```bash
+cargo build                                              # Build
+cargo test --all-features                                # Run all tests
+cargo test test_name                                     # Run specific test
+cargo test -- --nocapture                                # Run tests with stdout
+cargo clippy --all-targets --all-features -- -D warnings # Lint (CI uses -D warnings)
+cargo fmt                                                # Format
+cargo fmt -- --check                                     # Check formatting
+cargo deny check                                         # Supply chain audit
+cargo doc --no-deps --all-features                       # Build docs
+cargo +nightly miri test                                 # UB detection
 
-# Run tests with output
-cargo test -- --nocapture
-
-# Run specific test
-cargo test test_name
-
-# Run benchmarks
-cargo bench
-
-# Run linting
-cargo clippy --all-targets --all-features
-
-# Format code
-cargo fmt
-
-# Check formatting
-cargo fmt -- --check
-
-# Generate documentation
-cargo doc --open
-
-# Check supply chain security
-cargo deny check
-
-# Run with MIRI (undefined behavior detection)
-cargo +nightly miri test
-
-# Run all checks (lint + format + test + doc + deny)
+# Full CI check (run before pushing)
 cargo fmt -- --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test && cargo doc --no-deps && cargo deny check
 ```
 
-## Code Style Requirements
+</details>
 
-This project uses **clippy** with pedantic and nursery lints, and **rustfmt** for formatting.
+## Architecture
 
-### Key Rules
+### Source Layout
 
-- **Line length**: 100 characters
-- **Edition**: 2024
-- **MSRV**: 1.92
-- **Unsafe code**: Forbidden unless explicitly justified
-- **Panics**: Not allowed in library code (`unwrap`, `expect`, `panic!`)
+- `crates/lib.rs` — Library root: exports `Error` (thiserror), `Result<T>`, `Config` (builder pattern), `add()`, `divide()`
+- `crates/main.rs` — Binary entry point with `run() -> Result` pattern returning `ExitCode`
+- `tests/integration_test.rs` — Integration tests including property-based tests (proptest)
 
-### Error Handling
+### Key Patterns
 
-Always use `Result` types for fallible operations. Never panic in library code:
+- **Error handling**: `thiserror` for error types, `Result<T>` alias, `?` propagation. Never `unwrap`/`expect`/`panic!` in library code.
+- **Builder pattern**: `Config::new().with_verbose(true).with_max_retries(5)` using `const fn` and `#[must_use]`
+- **Binary structure**: `main()` returns `ExitCode`, delegates to `run()` which returns `Result`. Binary code allows `#[allow(clippy::print_stdout, clippy::print_stderr)]`.
 
-```rust
-// Good - Returns Result
-pub fn parse(input: &str) -> Result<Value, ParseError> {
-    if input.is_empty() {
-        return Err(ParseError::EmptyInput);
-    }
-    // parsing logic
-    Ok(value)
-}
+### Lint Configuration
 
-// Bad - Panics
-pub fn parse(input: &str) -> Value {
-    input.parse().unwrap() // Never do this in library code
-}
-```
+Clippy runs with **pedantic + nursery + cargo** lints. Key denied lints: `unwrap_used`, `expect_used`, `panic`, `todo`, `unimplemented`, `dbg_macro`, `print_stdout`, `print_stderr`. Tests are exempt (`allow-unwrap-in-tests = true`, etc. in `clippy.toml`).
 
-Use `thiserror` for custom error types:
+Thresholds from `clippy.toml`: max 100 lines/function, max 7 params, cognitive complexity 25, nesting depth 4.
 
-```rust
-use thiserror::Error;
+### Formatting
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("invalid input: {0}")]
-    InvalidInput(String),
+Configured in `rustfmt.toml`: 100-char line width, edition 2024, `imports_granularity = "Crate"`, `group_imports = "StdExternalCrate"`, `trailing_comma = "Vertical"`, `brace_style = "SameLineWhere"`. Uses `version = "Two"` (nightly features).
 
-    #[error("operation failed")]
-    OperationFailed {
-        #[source]
-        source: std::io::Error,
-    },
-}
-```
+### Supply Chain Security
 
-### Documentation
+`deny.toml` enforces: only permissive licenses (MIT, Apache-2.0, BSD, etc.), crates.io-only sources, bans `openssl` (use rustls) and `atty` (use `std::io::IsTerminal`).
 
-All public items must have documentation with examples:
+## Testing
 
-```rust
-/// Processes the input data according to the configuration.
-///
-/// # Arguments
-///
-/// * `input` - The data to process.
-/// * `config` - Processing configuration.
-///
-/// # Returns
-///
-/// The processed result.
-///
-/// # Errors
-///
-/// Returns [`Error::InvalidInput`] if the input is malformed.
-///
-/// # Examples
-///
-/// ```rust
-/// use {{crate_name}}::{process, Config};
-///
-/// let result = process("data", &Config::default())?;
-/// assert!(!result.is_empty());
-/// # Ok::<(), {{crate_name}}::Error>(())
-/// ```
-pub fn process(input: &str, config: &Config) -> Result<Output, Error> {
-    // implementation
-}
-```
-
-### Ownership and Borrowing
-
-Prefer borrowing over ownership:
-
-```rust
-// Good - borrows
-pub fn process(data: &[u8]) -> Vec<u8> { ... }
-
-// Avoid - takes ownership unnecessarily
-pub fn process(data: Vec<u8>) -> Vec<u8> { ... }
-```
-
-Use `Cow` for flexible string handling:
-
-```rust
-use std::borrow::Cow;
-
-pub fn normalize(s: &str) -> Cow<'_, str> {
-    if s.contains(' ') {
-        Cow::Owned(s.replace(' ', "_"))
-    } else {
-        Cow::Borrowed(s)
-    }
-}
-```
-
-### Builder Pattern
-
-Use builder pattern for complex configuration:
-
-```rust
-#[derive(Debug, Clone, Default)]
-pub struct Config {
-    timeout: Duration,
-    retries: u32,
-}
-
-impl Config {
-    #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            timeout: Duration::from_secs(30),
-            retries: 3,
-        }
-    }
-
-    #[must_use]
-    pub const fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = timeout;
-        self
-    }
-
-    #[must_use]
-    pub const fn with_retries(mut self, retries: u32) -> Self {
-        self.retries = retries;
-        self
-    }
-}
-```
-
-## Testing Conventions
-
-- **Unit tests**: Inside `crates/*.rs` with `#[cfg(test)]` modules
-- **Integration tests**: `tests/` directory
-- **Doc tests**: Examples in documentation
-- **Property tests**: Use `proptest` for property-based testing
-
-### Test Structure
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_success_case() {
-        let result = function_under_test(valid_input);
-        assert_eq!(result, expected_output);
-    }
-
-    #[test]
-    fn test_error_case() {
-        let result = function_under_test(invalid_input);
-        assert!(matches!(result, Err(Error::InvalidInput(_))));
-    }
-}
-```
-
-### Property-Based Testing
-
-```rust
-use proptest::prelude::*;
-
-proptest! {
-    #[test]
-    fn property_holds(input in any::<i64>()) {
-        prop_assert!(predicate(input));
-    }
-}
-```
-
-## Linting Configuration
-
-Clippy is configured to deny:
-- `unwrap_used`, `expect_used`, `panic` - Use Result instead
-- `todo`, `unimplemented` - Complete implementation
-- `dbg_macro`, `print_stdout`, `print_stderr` - Use proper logging
-
-## Supply Chain Security
-
-This project uses `cargo-deny` to audit dependencies:
-- **Advisories**: Deny crates with known vulnerabilities
-- **Licenses**: Only allow permissive licenses (MIT, Apache-2.0, BSD)
-- **Bans**: Block specific problematic crates
-- **Sources**: Only allow crates.io
-
-## Architecture Guidelines
-
-1. **Zero-cost abstractions**: Prefer compile-time over runtime overhead
-2. **Explicit over implicit**: No hidden allocations or side effects
-3. **Error propagation**: Use `?` operator, avoid `.unwrap()`
-4. **Const by default**: Use `const fn` where possible
-5. **Minimal dependencies**: Only add what's truly needed
-6. **Documentation-driven**: Public API documented with examples
-
-## Performance Considerations
-
-- Use `#[must_use]` for functions returning values that should not be ignored
-- Prefer `&str` over `String` in function parameters
-- Use `Vec::with_capacity()` when size is known
-- Avoid allocations in hot paths
-- Profile before optimizing
+- **Unit tests**: `#[cfg(test)] mod tests` inside source files
+- **Integration tests**: `tests/integration_test.rs`
+- **Property tests**: `proptest` crate in `tests/integration_test.rs::property_tests` module
+- **Parameterized tests**: `test-case` crate available in dev-dependencies
+- **Doc tests**: all public API examples must compile
 
 ## CI/CD
 
-The CI pipeline includes:
-1. **Format check**: `cargo fmt -- --check`
-2. **Lint**: `cargo clippy --all-targets --all-features`
-3. **Test**: `cargo test --all-features`
-4. **Documentation**: `cargo doc --no-deps`
-5. **Supply chain**: `cargo deny check`
-6. **MSRV check**: Verify minimum supported Rust version
-7. **Coverage**: Generate code coverage reports
+The CI pipeline (`.github/workflows/ci.yml`) runs: fmt, clippy, test (Linux/macOS/Windows matrix), doc build, cargo-deny, MSRV check (1.92), and coverage (cargo-llvm-cov to Codecov).
+
+Release workflow triggers on version tags (`v*`): builds multi-platform binaries (Linux x86_64/ARM64, macOS x86_64/ARM64, Windows x86_64), generates changelog via git-cliff, publishes to crates.io, builds Docker images (distroless base) to ghcr.io.
+
+## Code Style Rules
+
+- Prefer `&str` over `String` and `&[T]` over `Vec<T>` in function parameters
+- Use `Cow<'_, str>` for flexible string returns
+- Use `const fn` where possible, `#[must_use]` on value-returning functions
+- All public items require doc comments with `# Arguments`, `# Returns`, `# Errors`, `# Examples`
+- Group imports: std, external crates, crate-local
+- `unsafe` code is forbidden (`unsafe_code = "forbid"` in Cargo.toml)

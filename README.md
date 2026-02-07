@@ -81,6 +81,10 @@ fn main() -> Result<(), rust_template::Error> {
 | `Error` | Error type for operations |
 | `Result<T>` | Type alias for `Result<T, Error>` |
 
+## Getting Started
+
+**New to this template?** See the [Getting Started Guide](docs/template/GETTING-STARTED.md) for a step-by-step walkthrough from "Use this template" to your first CI pass.
+
 ## Development
 
 ### Prerequisites
@@ -130,6 +134,10 @@ clippy.toml          # Clippy configuration
 rustfmt.toml         # Formatter configuration
 deny.toml            # cargo-deny configuration
 CLAUDE.md            # AI assistant instructions
+AGENTS.md            # AI coding agent instructions
+.editorconfig        # Cross-editor defaults
+.devcontainer/       # Codespaces / dev container config
+.vscode/             # VS Code settings and extensions
 ```
 
 ### Code Quality
@@ -165,6 +173,7 @@ This template includes production-ready workflows:
 
 - **CI** (`.github/workflows/ci.yml`) - Format, lint, test, docs, supply chain security, MSRV check, coverage
 - **Security Audit** (`.github/workflows/security-audit.yml`) - Daily cargo-audit scans
+- **`CodeQL` Analysis** (`.github/workflows/codeql-analysis.yml`) - SAST scanning on push/PR and weekly schedule
 - **Benchmark** (`.github/workflows/benchmark.yml`) - Performance tracking with criterion
 - **ADR Validation** (`.github/workflows/adr-validation.yml`) - Architectural decision records validation
 
@@ -206,6 +215,13 @@ This template includes production-ready workflows:
    - Build and push Docker images
    - Publish to crates.io
 
+### AI Coding Agent
+
+- **Copilot Setup** (`.github/workflows/copilot-setup-steps.yml`) - Environment for GitHub Copilot coding agent
+- **Agent Instructions**: `AGENTS.md`, `.github/copilot-instructions.md`, `CLAUDE.md`
+- **Path-Specific Instructions**: `.github/instructions/` for Rust code and test patterns
+- **Reusable Prompts**: `.github/prompts/` for common development tasks
+
 ### Docker Usage
 
 Pull and run the container:
@@ -225,22 +241,12 @@ The Minimum Supported Rust Version (MSRV) is **1.92**. Increasing the MSRV is co
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run the test suite (`cargo test`)
-5. Run linting (`cargo clippy --all-targets --all-features`)
-6. Format code (`cargo fmt`)
-7. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-8. Push to the branch (`git push origin feature/amazing-feature`)
-9. Open a Pull Request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, PR checklist, and coding standards.
 
-Please ensure your PR:
-- Passes all CI checks
-- Includes tests for new functionality
-- Updates documentation as needed
-- Follows the existing code style
-- Does not introduce unsafe code without justification
+Please also review:
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - Community guidelines
+- [SECURITY.md](SECURITY.md) - Vulnerability reporting
+- [GOVERNANCE.md](GOVERNANCE.md) - Decision-making process
 
 ## License
 
