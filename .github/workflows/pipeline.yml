@@ -1,0 +1,223 @@
+---
+name: Pipeline
+
+"on":
+  push:
+    branches: [main, master]
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Pipeline stage to run"
+        type: choice
+        options:
+          - all
+          - ci
+          - release
+          - sign
+          - publish
+          - docker
+          - packages
+          - sbom
+          - slsa
+        default: ci
+
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{
+    github.ref_type == 'tag'
+    && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  actions: read
+  pull-requests: write
+
+jobs:
+  # -----------------------------------------------------------
+  # CI Stage — runs on every push, PR, and tag
+  # -----------------------------------------------------------
+  ci:
+    name: CI Checks
+    if: >-
+      github.event_name != 'workflow_dispatch'
+      || inputs.stage == 'all'
+      || inputs.stage == 'ci'
+    uses: ./.github/workflows/ci-checks.yml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  coverage:
+    name: Code Coverage
+    if: >-
+      github.event_name != 'workflow_dispatch'
+      || inputs.stage == 'all'
+      || inputs.stage == 'ci'
+    uses: ./.github/workflows/ci-coverage.yml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  test-matrix:
+    name: Test Matrix
+    if: >-
+      github.event_name == 'pull_request'
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.stage == 'all'
+      || inputs.stage == 'ci'))
+    uses: ./.github/workflows/ci-test-matrix.yml
+
+  # -----------------------------------------------------------
+  # Docker — after CI; PR = build-only, push on main/tags
+  # -----------------------------------------------------------
+  docker:
+    name: Docker
+    needs: [ci]
+    if: >-
+      github.event_name != 'workflow_dispatch'
+      || inputs.stage == 'all'
+      || inputs.stage == 'docker'
+    uses: ./.github/workflows/release-docker.yml
+    with:
+      push: >-
+        ${{ github.event_name != 'pull_request' }}
+
+  # -----------------------------------------------------------
+  # Release Stage — tags only
+  # -----------------------------------------------------------
+  release:
+    name: Create Release
+    needs: [ci]
+    if: >-
+      (github.ref_type == 'tag'
+      && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.stage == 'all'
+      || inputs.stage == 'release'))
+    uses: ./.github/workflows/release-create.yml
+    with:
+      tag: ${{ github.ref_name }}
+
+  sign:
+    name: Sign Release
+    needs: [release]
+    if: >-
+      (github.ref_type == 'tag'
+      && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.stage == 'all'
+      || inputs.stage == 'sign'))
+    uses: ./.github/workflows/release-sign.yml
+    with:
+      tag: ${{ github.ref_name }}
+
+  publish:
+    name: Publish to crates.io
+    needs: [release]
+    if: >-
+      (github.ref_type == 'tag'
+      && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.stage == 'all'
+      || inputs.stage == 'publish'))
+    uses: ./.github/workflows/release-publish.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      CARGO_REGISTRY_TOKEN: >-
+        ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  packages:
+    name: Release Packages
+    needs: [release]
+    if: >-
+      (github.ref_type == 'tag'
+      && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.stage == 'all'
+      || inputs.stage == 'packages'))
+    uses: ./.github/workflows/release-packages.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      HOMEBREW_TAP_TOKEN: >-
+        ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      SNAPCRAFT_TOKEN: >-
+        ${{ secrets.SNAPCRAFT_TOKEN }}
+
+  sbom:
+    name: SBOM Generation
+    needs: [release]
+    if: >-
+      (github.ref_type == 'tag'
+      && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.stage == 'all'
+      || inputs.stage == 'sbom'))
+    uses: ./.github/workflows/release-sbom.yml
+    with:
+      tag: ${{ github.ref_name }}
+
+  # -----------------------------------------------------------
+  # SLSA — inline jobs (cannot nest reusable workflow calls)
+  # -----------------------------------------------------------
+  slsa-build:
+    name: SLSA Build and Hash
+    needs: [release]
+    if: >-
+      (github.ref_type == 'tag'
+      && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.stage == 'all'
+      || inputs.stage == 'slsa'))
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - name: Checkout code
+        # v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Setup Rust
+        # master
+        uses: >-
+          dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Generate subject hashes
+        id: hash
+        run: |
+          set -euo pipefail
+          HASHES=$(sha256sum \
+            target/release/rust-template \
+            | base64 -w0)
+          echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
+
+  slsa-provenance:
+    name: SLSA Provenance
+    needs: [slsa-build]
+    if: >-
+      (github.ref_type == 'tag'
+      && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.stage == 'all'
+      || inputs.stage == 'slsa'))
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: >-
+      slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: >-
+        ${{ needs.slsa-build.outputs.hashes }}
+      upload-assets: true

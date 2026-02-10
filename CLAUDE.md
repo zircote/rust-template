@@ -81,9 +81,15 @@ Configured in `rustfmt.toml`: 100-char line width, edition 2024, `imports_granul
 
 ## CI/CD
 
-The CI pipeline (`.github/workflows/ci.yml`) runs: fmt, clippy, test (Linux/macOS/Windows matrix), doc build, cargo-deny, MSRV check (1.92), and coverage (cargo-llvm-cov to Codecov).
+All CI and release work is orchestrated through a single `pipeline.yml` that calls reusable workflows via `workflow_call` with explicit `needs:` dependencies.
 
-Release workflow triggers on version tags (`v*`): builds multi-platform binaries (Linux x86_64/ARM64, macOS x86_64/ARM64, Windows x86_64), generates changelog via git-cliff, publishes to crates.io, builds Docker images (distroless base) to ghcr.io.
+**CI stage** (`ci-checks.yml`): fmt, clippy, test (Linux/macOS/Windows), doc build, cargo-deny, MSRV check (1.92), `all-checks-pass` gate. Runs in parallel with `ci-coverage.yml` (LCOV/Codecov) and `ci-test-matrix.yml` (12-combo matrix, PR only).
+
+**Docker** (`release-docker.yml`): multi-platform build after CI passes. PR = build-only; push on main/tags.
+
+**Release stage** (tags only, after CI): `release-create.yml` (GH release + git-cliff + 5 binaries + CHANGELOG.md commit), then in parallel: `release-sign.yml` (Cosign + checksums), `release-publish.yml` (crates.io), `release-packages.yml` (Homebrew/Snap/MSI/deb/rpm), `release-sbom.yml` (SPDX), and SLSA provenance (inline jobs).
+
+See `docs/template/CI-WORKFLOWS.md` for the full reference.
 
 ## Code Style Rules
 

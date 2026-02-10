@@ -1,0 +1,112 @@
+---
+name: Sign Release Assets
+
+"on":
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to sign (e.g. v1.2.3)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to sign (e.g. v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  sign-assets:
+    name: Sign Release Assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Cosign
+        # v3.7.0
+        uses: >-
+          sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release download "$TAG" \
+            --repo "$REPO" \
+            --pattern '*'
+
+      - name: Sign assets with Cosign
+        run: |
+          for file in *; do
+            if [[ -f "$file" && "$file" != *.sig ]]; then
+              echo "Signing $file"
+              cosign sign-blob --yes "$file" \
+                > "${file}.sig"
+            fi
+          done
+
+      - name: Generate checksums
+        run: |
+          sha256sum * | grep -v '\.sig' > SHA256SUMS
+          sha512sum * | grep -v '\.sig' > SHA512SUMS
+
+      - name: Sign checksums
+        run: |
+          cosign sign-blob --yes SHA256SUMS \
+            > SHA256SUMS.sig
+          cosign sign-blob --yes SHA512SUMS \
+            > SHA512SUMS.sig
+
+      - name: Upload signatures
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release upload "$TAG" \
+            --repo "$REPO" \
+            --clobber \
+            *.sig SHA256SUMS SHA512SUMS
+
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          EXISTING=$(gh release view "$TAG" \
+            --repo "$REPO" --json body -q '.body')
+
+          cat > release_notes.md << NOTES
+          ${EXISTING}
+
+          ## Verification
+
+          All release assets are signed with
+          [Sigstore Cosign](https://github.com/sigstore/cosign).
+
+          ### Verify signatures:
+
+          \`\`\`bash
+          # Install cosign
+          brew install cosign
+
+          # Verify asset signature
+          cosign verify-blob \\
+            --signature <file>.sig \\
+            --certificate-identity-regexp=".*" \\
+            --certificate-oidc-issuer-regexp=".*" \\
+            <file>
+
+          # Verify checksums
+          sha256sum --check SHA256SUMS
+          \`\`\`
+          NOTES
+
+          gh release edit "$TAG" \
+            --repo "$REPO" \
+            --notes-file release_notes.md

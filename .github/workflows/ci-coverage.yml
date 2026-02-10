@@ -1,0 +1,147 @@
+---
+name: Code Coverage
+
+"on":
+  workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  coverage:
+    name: Generate Coverage Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        # v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Install Rust toolchain
+        # master
+        uses: >-
+          dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        # v2.67.25
+        uses: >-
+          taiki-e/install-action@f176c07a0a40cbfdd08ee9aa8bf1655701d11e69
+        with:
+          tool: cargo-llvm-cov@0.6.14
+
+      - name: Cache cargo registry
+        # v5.0.3
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: >-
+            ${{ runner.os }}-cargo-cov-${{
+            hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-cov-
+
+      - name: Generate coverage
+        run: |
+          cargo llvm-cov --all-features --workspace \
+            --lcov --output-path lcov.info
+          cargo llvm-cov --all-features --workspace \
+            --html --output-dir coverage-html
+          cargo llvm-cov --all-features --workspace \
+            --json --output-path coverage.json
+
+      - name: Parse coverage percentage
+        id: coverage
+        run: |
+          COVERAGE=$(cargo llvm-cov --all-features \
+            --workspace --summary-only \
+            | grep -oP 'TOTAL\s+\d+\.\d+%' \
+            | grep -oP '\d+\.\d+' || echo "0")
+          echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
+          echo "Coverage: ${COVERAGE}%"
+
+      - name: Generate coverage report
+        env:
+          COVERAGE_PCT: ${{ steps.coverage.outputs.percentage }}
+        run: |
+          {
+            echo "# Code Coverage Report"
+            echo ""
+            echo "**Overall Coverage:** ${COVERAGE_PCT}%"
+            echo ""
+            echo "## Summary"
+            echo ""
+            echo "\`\`\`"
+            cargo llvm-cov --all-features \
+              --workspace --summary-only
+            echo "\`\`\`"
+            echo ""
+            echo "Full HTML report available in CI artifacts."
+          } > coverage-report.md
+
+      - name: Upload coverage to Codecov
+        # v5.5.2
+        uses: >-
+          codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifacts
+        # v4.6.2
+        uses: >-
+          actions/upload-artifact@47309c993abb98030a35d55ef7ff34b7fa1074b5
+        with:
+          name: coverage-report
+          path: |
+            coverage-report.md
+            coverage-html/
+            lcov.info
+            coverage.json
+          retention-days: 30
+
+      - name: Comment PR with coverage
+        if: github.event_name == 'pull_request'
+        # v7.0.1
+        uses: >-
+          actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync(
+              'coverage-report.md', 'utf8'
+            );
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+      - name: Check coverage threshold
+        env:
+          COVERAGE: ${{ steps.coverage.outputs.percentage }}
+        run: |
+          THRESHOLD=80
+
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) ))
+          then
+            echo "Coverage ${COVERAGE}% is below ${THRESHOLD}%"
+            echo "Consider adding more tests."
+          else
+            echo "Coverage ${COVERAGE}% meets ${THRESHOLD}%"
+          fi

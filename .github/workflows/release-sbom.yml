@@ -1,0 +1,64 @@
+---
+name: SBOM Generation
+
+"on":
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.2.3)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  generate-sbom:
+    name: Generate Software Bill of Materials
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        # v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Install Rust toolchain
+        # master
+        uses: >-
+          dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+
+      - name: Install cargo-sbom
+        # v2.67.25
+        uses: >-
+          taiki-e/install-action@f176c07a0a40cbfdd08ee9aa8bf1655701d11e69
+        with:
+          tool: cargo-sbom
+
+      - name: Generate SBOM (SPDX format)
+        run: >-
+          cargo sbom --output-format spdx_json_2_3
+          > sbom-spdx.json
+
+      - name: Upload SBOM artifact
+        # v4.6.2
+        uses: >-
+          actions/upload-artifact@47309c993abb98030a35d55ef7ff34b7fa1074b5
+        with:
+          name: sbom-spdx
+          path: sbom-spdx.json
+          retention-days: 90
+
+      - name: Attach SBOM to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release upload "$TAG" \
+            sbom-spdx.json --clobber
