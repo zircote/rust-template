@@ -353,19 +353,9 @@ Structure:
 
 ## Phase 3: Execution
 
-### 3.1 Create ALL Tasks Before Any Execution
+### 3.1 Create Team
 
-**MANDATORY**: Create every task from the manifest using `TaskCreate` BEFORE spawning any teammates or beginning any implementation work.
-
-1. Call `TaskCreate` for every task in the manifest (all phases A through H). Each task MUST have `subject`, `description`, and `activeForm`.
-2. Call `TaskUpdate` with `addBlockedBy` to set ALL dependency relationships (e.g., all Phase B tasks blocked by relevant Phase A tasks).
-3. Call `TaskList` to verify all tasks exist with correct dependencies.
-
-**Do NOT proceed to 3.2 until every task is registered and all dependencies are set.**
-
-### 3.2 Create Team and Spawn Teammates
-
-**Step 1: Create the team**
+**MANDATORY FIRST STEP**: Create the team BEFORE creating any tasks. Tasks created without a team context land in the wrong task list and teammates cannot see them.
 
 ```
 TeamCreate:
@@ -373,7 +363,19 @@ TeamCreate:
   description: "Specification implementation team"
 ```
 
-**Step 2: Spawn teammates in PARALLEL (single response turn)**
+### 3.2 Create ALL Tasks
+
+**After the team exists**, create every task from the manifest using `TaskCreate`. Tasks are now automatically associated with the team's task list.
+
+1. Call `TaskCreate` for every task in the manifest (all phases A through H). Each task MUST have `subject`, `description`, and `activeForm`.
+2. Call `TaskUpdate` with `addBlockedBy` to set ALL dependency relationships (e.g., all Phase B tasks blocked by relevant Phase A tasks).
+3. Call `TaskList` to verify all tasks exist with correct dependencies.
+
+**Do NOT proceed to 3.3 until every task is registered and all dependencies are set.**
+
+### 3.3 Spawn Teammates
+
+Spawn teammates in PARALLEL (single response turn).
 
 Determine how many parallel teammates you need for the current wave. Spawn them ALL in one response using multiple `Task` calls simultaneously.
 
@@ -415,7 +417,7 @@ Task:
 
 Scale teammates to the wave size: up to 5 for large waves, 2 for small waves (1-2 tasks).
 
-### 3.3 Execute in Waves
+### 3.4 Execute in Waves
 
 Process tasks in dependency-ordered waves. All unblocked tasks in a wave run in parallel.
 
@@ -447,7 +449,7 @@ Teammates self-claim tasks from `TaskList` (finding unblocked pending tasks with
    d. If fails due to **dependency** (missing type from incomplete task): skip for now, resolves when the blocking task completes.
 5. **Next wave**: After all wave tasks show `completed` in `TaskList`, newly unblocked tasks become available → teammates self-claim from the next wave automatically.
 
-### 3.4 Integration Checkpoints
+### 3.5 Integration Checkpoints
 
 After each phase completes, run `just check`. Fix any issues via teammate fix tasks before proceeding to the next phase.
 
@@ -542,7 +544,7 @@ Present to the user:
 7. **Parallelize within waves, serialize across waves** — spawn teammates with `run_in_background: true` in a single response turn for actual parallelism.
 8. **Context budget** — give each subagent or teammate only CLAUDE.md, the relevant spec files, the relevant source files, and a self-contained task description.
 9. **Task lifecycle is MANDATORY** — `TaskCreate` → teammate claims via `TaskUpdate(owner + in_progress)` → work → verify → `TaskUpdate(completed)`. Never skip status updates; they unblock dependent tasks.
-10. **All tasks registered before any execution** — Phase 3.1 MUST complete before 3.2. No exceptions.
+10. **Team before tasks, tasks before teammates** — Phase 3.1 (TeamCreate) → 3.2 (TaskCreate) → 3.3 (spawn teammates). Tasks created without a team land in the wrong list. No exceptions.
 11. **Teammates are spawned via Task with team_name + run_in_background** — `TeamCreate` creates the container. `Task` with `team_name`, `name`, and `run_in_background: true` spawns actual agents. Without `run_in_background`, teammates run sequentially, not in parallel.
 12. **Teammates self-claim tasks** — Teammates find unblocked unclaimed tasks via `TaskList` and claim them with `TaskUpdate(owner)`. This is more resilient than leader-assignment.
 13. **Clean shutdown** — Always send `shutdown_request` to all teammates and call `TeamDelete` when done.
