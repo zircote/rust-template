@@ -6,24 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a **GitHub template repository** for Rust crates. The crate name is `rust_template` (Rust edition 2024, MSRV 1.92). It ships both a library (`crates/lib.rs`) and a binary (`crates/main.rs`). Source lives in `crates/`, not the standard `src/` directory.
 
-## Build Commands
+---
+
+<!-- Diátaxis: How-to Guides — task-oriented, practical steps -->
+
+## How-to Guides
+
+### Build and Run
 
 [`just`](https://github.com/casey/just) is the local task runner. Run `just` to list all recipes.
 
 ```bash
 just                  # List all recipes
 just check            # Full CI check (fmt + clippy + test + doc + deny)
-just test             # Run all tests
-just lint             # Clippy with CI flags
-just fmt              # Format code
-just deny             # Supply chain audit
-just coverage         # LCOV coverage report
-just msrv             # Check against MSRV 1.92
-just miri             # Miri undefined behavior detection
+just build            # Debug build
+just build-release    # Release build
+just run              # Run the binary
 ```
 
 <details>
-<summary>Raw cargo commands</summary>
+<summary>Raw cargo equivalents</summary>
 
 ```bash
 cargo build                                              # Build
@@ -43,43 +45,261 @@ cargo fmt -- --check && cargo clippy --all-targets --all-features -- -D warnings
 
 </details>
 
-## Architecture
+### Run Tests
+
+```bash
+just test             # All tests (unit + integration + doc)
+just test-verbose     # Tests with stdout visible
+just test-single NAME # Single test by name
+just coverage         # LCOV coverage report
+just coverage-html    # HTML coverage report
+just msrv             # Check against MSRV 1.92
+just miri             # Miri undefined behavior detection
+just mutants          # Mutation testing
+```
+
+### Lint and Format
+
+```bash
+just fmt              # Format code
+just fmt-check        # Check formatting (no modify)
+just lint             # Clippy with CI-equivalent flags
+just lint-fix         # Clippy auto-fix
+just deny             # Supply chain audit
+just audit            # Advisory database check
+```
+
+### Add a New Public Function
+
+1. Add the function in `crates/lib.rs` (or a module under `crates/`).
+2. Annotate with `#[must_use]` if it returns a value without side effects.
+3. Use `const fn` if the body permits.
+4. Write a doc comment with `# Arguments`, `# Returns`, `# Errors` (if fallible), and `# Examples`.
+5. Add a unit test in the `#[cfg(test)] mod tests` block within the same file.
+6. Add an integration test in `tests/integration_test.rs`.
+7. Run `just check` before committing.
+
+### Add a New Error Variant
+
+1. Add the variant to the `Error` enum in `crates/lib.rs`.
+2. Include a `#[error("...")]` format string with meaningful context.
+3. Prefer structured variants (named fields) over tuple variants when there are multiple pieces of context.
+4. Add a display test in the `test_error_display` test.
+
+### Add a Builder Field to Config
+
+1. Add the field to the `Config` struct with a doc comment.
+2. Set a sensible default in `Config::new()`.
+3. Add a `with_<field>(mut self, value: T) -> Self` method marked `#[must_use]` and `const fn`.
+4. Add a test case in `test_config_builder` and `test_config_default`.
+
+---
+
+<!-- Diátaxis: Reference — precise, factual, information-oriented -->
+
+## Reference
 
 ### Source Layout
 
-- `crates/lib.rs` — Library root: exports `Error` (thiserror), `Result<T>`, `Config` (builder pattern), `add()`, `divide()`
-- `crates/main.rs` — Binary entry point with `run() -> Result` pattern returning `ExitCode`
-- `tests/integration_test.rs` — Integration tests including property-based tests (proptest)
+| Path | Purpose |
+|---|---|
+| `crates/lib.rs` | Library root: `Error` (thiserror), `Result<T>`, `Config` (builder), `add()`, `divide()` |
+| `crates/main.rs` | Binary entry point: `main() -> ExitCode`, delegates to `run() -> Result` |
+| `tests/integration_test.rs` | Integration tests including property-based tests (proptest) |
+| `clippy.toml` | Clippy thresholds and test-mode exemptions |
+| `rustfmt.toml` | Formatter settings (stable options active, nightly options commented) |
+| `deny.toml` | Supply chain policy: licenses, bans, source restrictions |
+| `justfile` | Local task runner recipes (CI parity) |
 
-### Key Patterns
+### Error Handling
 
-- **Error handling**: `thiserror` for error types, `Result<T>` alias, `?` propagation. Never `unwrap`/`expect`/`panic!` in library code.
-- **Builder pattern**: `Config::new().with_verbose(true).with_max_retries(5)` using `const fn` and `#[must_use]`
-- **Binary structure**: `main()` returns `ExitCode`, delegates to `run()` which returns `Result`. Binary code allows `#[allow(clippy::print_stdout, clippy::print_stderr)]`.
+- **Crate error type**: `Error` enum derived with `thiserror::Error`.
+- **Result alias**: `pub type Result<T> = std::result::Result<T, Error>`.
+- **Propagation**: use `?` operator. Never `unwrap()`, `expect()`, or `panic!()` in library code.
+- **Binary**: `main()` returns `ExitCode`; delegates to `run() -> Result`. Match on `Ok`/`Err` in `main()` and print errors to stderr.
+
+### Ownership and Borrowing
+
+- Prefer `&str` over `String` in function parameters.
+- Prefer `&[T]` over `Vec<T>` in function parameters.
+- Use `Cow<'_, str>` when a function may or may not allocate.
+- Pass large structs by reference; pass `Copy` types by value.
+- Avoid unnecessary `.clone()` — if you need ownership, take owned types in the signature.
+
+### Type Design
+
+- Use newtypes to enforce domain invariants (e.g., `struct Port(u16)` over bare `u16`).
+- Derive `Debug` on all types. Derive `Clone`, `PartialEq`, `Eq`, `Hash` when semantically correct.
+- Use `#[non_exhaustive]` on public enums and structs that may grow.
+- Prefer `enum` for closed sets, `trait` for open extension.
+
+### Builder Pattern
+
+This project uses consuming-self builders with `const fn`:
+
+```rust
+#[must_use]
+pub const fn with_field(mut self, value: T) -> Self {
+    self.field = value;
+    self
+}
+```
+
+- `Config::new()` is `const fn` and `#[must_use]`.
+- `Default` impl delegates to `new()`.
+- Every builder method is `const fn` and `#[must_use]`.
+
+### Const and Must-Use Annotations
+
+- `#[must_use]` on all pure functions that return a value.
+- `const fn` wherever the compiler allows it.
+- Both annotations on builder methods.
 
 ### Lint Configuration
 
-Clippy runs with **pedantic + nursery + cargo** lints. Key denied lints: `unwrap_used`, `expect_used`, `panic`, `todo`, `unimplemented`, `dbg_macro`, `print_stdout`, `print_stderr`. Tests are exempt (`allow-unwrap-in-tests = true`, etc. in `clippy.toml`).
+Clippy runs with **pedantic + nursery + cargo** lint groups. All are set to `warn` with priority -1.
 
-Thresholds from `clippy.toml`: max 100 lines/function, max 7 params, cognitive complexity 25, nesting depth 4.
+**Denied lints** (hard errors):
+
+| Lint | Reason |
+|---|---|
+| `unwrap_used` | Use `?` or explicit match |
+| `expect_used` | Use `?` or explicit match |
+| `panic` | Return errors instead |
+| `todo` | No placeholder code |
+| `unimplemented` | No placeholder code |
+| `dbg_macro` | No debug prints in production |
+| `print_stdout` | Use logging; binary exempts itself with `#[allow]` |
+| `print_stderr` | Use logging; binary exempts itself with `#[allow]` |
+
+**Allowed lints**:
+
+| Lint | Reason |
+|---|---|
+| `missing_errors_doc` | Opt-in documentation |
+| `missing_panics_doc` | Opt-in documentation |
+| `module_name_repetitions` | Common in Rust API design |
+| `must_use_candidate` | Applied manually where meaningful |
+| `redundant_pub_crate` | Allow `pub(crate)` for clarity |
+
+**Clippy thresholds** (from `clippy.toml`):
+
+| Threshold | Value |
+|---|---|
+| `too-many-lines-threshold` | 100 |
+| `too-many-arguments-threshold` | 7 |
+| `cognitive-complexity-threshold` | 25 |
+| `excessive-nesting-threshold` | 4 |
+| `max-struct-bools` | 3 |
+| `max-fn-params-bools` | 3 |
+| `pass-by-value-size-limit` | 256 bytes |
+| `type-complexity-threshold` | 250 |
+
+**Test exemptions**: `allow-unwrap-in-tests`, `allow-expect-in-tests`, `allow-dbg-in-tests`, `allow-print-in-tests` are all `true`.
 
 ### Formatting
 
-Configured in `rustfmt.toml`: 100-char line width, edition 2024, `imports_granularity = "Crate"`, `group_imports = "StdExternalCrate"`, `trailing_comma = "Vertical"`, `brace_style = "SameLineWhere"`. Uses `version = "Two"` (nightly features).
+Configured in `rustfmt.toml` (stable options active):
+
+| Setting | Value |
+|---|---|
+| `max_width` | 100 |
+| `edition` | 2024 |
+| `tab_spaces` | 4 |
+| `hard_tabs` | false |
+| `use_field_init_shorthand` | true |
+| `reorder_imports` | true |
+| `reorder_modules` | true |
+| `newline_style` | Unix |
+| `match_block_trailing_comma` | true |
+
+Nightly-only options (`imports_granularity`, `group_imports`, `trailing_comma`, `brace_style`, etc.) are commented out but documented for when nightly is used.
+
+### Import Ordering
+
+Group imports in this order, separated by blank lines:
+
+1. `std` / `core` / `alloc`
+2. External crates
+3. `crate` / `super` / `self`
+
+Within each group, alphabetical order (enforced by `reorder_imports = true`).
+
+### Doc Comments
+
+All public items require doc comments. Structure:
+
+```rust
+/// Brief one-line summary.
+///
+/// Extended description (optional, for complex items).
+///
+/// # Arguments
+///
+/// * `param` - Description.
+///
+/// # Returns
+///
+/// What this function returns.
+///
+/// # Errors
+///
+/// When and why this function returns an error (required for fallible functions).
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_template::my_function;
+///
+/// let result = my_function(42);
+/// assert_eq!(result, 42);
+/// ```
+```
+
+- Doc examples must compile (`cargo test` runs them as doctests).
+- Use `#![doc = include_str!("../README.md")]` at the crate root to pull in README as crate docs.
+
+### Unsafe Code
+
+`unsafe` code is **forbidden** (`unsafe_code = "forbid"` in `[lints.rust]`). No exceptions.
 
 ### Supply Chain Security
 
-`deny.toml` enforces: only permissive licenses (MIT, Apache-2.0, BSD, etc.), crates.io-only sources, bans `openssl` (use rustls) and `atty` (use `std::io::IsTerminal`).
+`deny.toml` enforces:
 
-## Testing
+- **Licenses**: only permissive (MIT, Apache-2.0, BSD-2/3, ISC, Zlib, MPL-2.0, Unicode, CC0, BSL-1.0, 0BSD).
+- **Sources**: crates.io only; unknown registries and git sources denied.
+- **Bans**: `openssl` (use `rustls`), `atty` (use `std::io::IsTerminal`).
+- **Advisories**: all advisory types (vulnerability, unmaintained, unsound, notice, yanked) denied.
+- **Wildcards**: wildcard version requirements denied.
 
-- **Unit tests**: `#[cfg(test)] mod tests` inside source files
-- **Integration tests**: `tests/integration_test.rs`
-- **Property tests**: `proptest` crate in `tests/integration_test.rs::property_tests` module
-- **Parameterized tests**: `test-case` crate available in dev-dependencies
-- **Doc tests**: all public API examples must compile
+### Testing
 
-## CI/CD
+| Test type | Location | Crate |
+|---|---|---|
+| Unit tests | `#[cfg(test)] mod tests` inside source files | — |
+| Integration tests | `tests/integration_test.rs` | — |
+| Property tests | `tests/integration_test.rs::property_tests` | `proptest` |
+| Parameterized tests | anywhere, via `#[test_case]` | `test-case` |
+| Doc tests | `///` examples on public items | — |
+
+**Property test pattern** (proptest):
+
+```rust
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn my_property(input in any::<i32>()) {
+            prop_assert!(some_invariant(input));
+        }
+    }
+}
+```
+
+### CI/CD
 
 All CI and release work is orchestrated through a single `pipeline.yml` that calls reusable workflows via `workflow_call` with explicit `needs:` dependencies.
 
@@ -91,11 +311,45 @@ All CI and release work is orchestrated through a single `pipeline.yml` that cal
 
 See `docs/template/CI-WORKFLOWS.md` for the full reference.
 
-## Code Style Rules
+### Cargo Profiles
 
-- Prefer `&str` over `String` and `&[T]` over `Vec<T>` in function parameters
-- Use `Cow<'_, str>` for flexible string returns
-- Use `const fn` where possible, `#[must_use]` on value-returning functions
-- All public items require doc comments with `# Arguments`, `# Returns`, `# Errors`, `# Examples`
-- Group imports: std, external crates, crate-local
-- `unsafe` code is forbidden (`unsafe_code = "forbid"` in Cargo.toml)
+| Profile | Optimization | LTO | Codegen Units | Panic | Strip | Debug |
+|---|---|---|---|---|---|---|
+| `dev` | 0 | off | default | unwind | no | 1 (line tables) |
+| `release` | 3 | thin | 1 | abort | yes | no |
+| `release-debug` | 3 | thin | 1 | abort | no | full |
+
+---
+
+<!-- Diátaxis: Explanation — understanding-oriented, design rationale -->
+
+## Explanation
+
+### Why `crates/` Instead of `src/`
+
+This template uses `crates/` as the source directory to distinguish it from the common `src/` layout. This is a template convention — downstream projects may restructure. The `[lib]` and `[[bin]]` paths in `Cargo.toml` point to `crates/lib.rs` and `crates/main.rs`.
+
+### Why `thiserror` for Errors
+
+`thiserror` provides derive macros for `std::error::Error` with zero runtime overhead. It generates `Display` and `From` implementations from attributes, keeping error definitions concise and consistent. The crate-level `Result<T>` alias reduces boilerplate across the API.
+
+### Why Consuming-Self Builders
+
+The builder pattern uses `fn with_field(mut self, ...) -> Self` instead of `&mut self`. This enables:
+
+- **Const evaluation**: `const fn` is compatible with owned self, not `&mut self`.
+- **Chaining**: `Config::new().with_a(1).with_b(2)` reads naturally.
+- **Move semantics**: no hidden shared state; the builder is consumed on each call.
+
+### Why Pedantic Clippy
+
+Enabling `pedantic`, `nursery`, and `cargo` lint groups catches subtle issues early: missing docs, inefficient patterns, cargo metadata problems. The strict deny list (`unwrap_used`, `panic`, etc.) enforces that library code handles all errors explicitly, pushing failures to the API boundary where callers can make decisions.
+
+### Why `panic = "abort"` in Release
+
+Release builds use `panic = "abort"` to eliminate unwinding tables, reducing binary size. Combined with `strip = true` and `lto = "thin"`, this produces small, fast binaries. The `release-debug` profile inherits these optimizations but preserves debug symbols for profiling.
+
+### Why Ban `openssl` and `atty`
+
+- **`openssl`**: links to a system C library with complex build requirements and CVE history. `rustls` is a pure-Rust TLS implementation with smaller attack surface.
+- **`atty`**: unmaintained and unnecessary since Rust 1.70 added `std::io::IsTerminal` to the standard library.
