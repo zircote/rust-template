@@ -8,6 +8,28 @@ This is a **GitHub template repository** for Rust crates. The crate name is `rus
 
 ---
 
+## Documentation Standard: Diátaxis
+
+All documentation in this project follows the [Diátaxis framework](https://diataxis.fr/). When adding or updating documentation — including this file, `docs/`, doc comments, and README files — classify content into one of four modes:
+
+| Mode | Purpose | Prompt | Example |
+|---|---|---|---|
+| **How-to** | Task-oriented steps | "How do I…?" | Adding a new error variant, running tests |
+| **Reference** | Precise, factual lookup | "What is…?" | Lint tables, cargo profiles, API signatures |
+| **Explanation** | Design rationale | "Why does…?" | Why `thiserror`, why `panic = "abort"` |
+| **Tutorial** | Learning-oriented walkthrough | "Teach me…" | (Not used in CLAUDE.md; use `docs/` for tutorials) |
+
+**Rules for contributors (human and AI):**
+
+- Before writing documentation, decide which Diátaxis mode it belongs to. Do not mix modes in a single section.
+- **How-to** sections use numbered steps and end with a verification command.
+- **Reference** sections use tables or structured lists. No rationale — just facts.
+- **Explanation** sections use "Why X" headings and focus on trade-offs and decisions.
+- New `docs/` files must declare their Diátaxis mode in a frontmatter comment or heading.
+- When extending this CLAUDE.md, place new content under the correct Diátaxis heading below.
+
+---
+
 <!-- Diátaxis: How-to Guides — task-oriented, practical steps -->
 
 ## How-to Guides
