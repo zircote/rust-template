@@ -379,11 +379,15 @@ Spawn teammates in PARALLEL (single response turn).
 
 Determine how many parallel teammates you need for the current wave. Spawn them ALL in one response using multiple `Task` calls simultaneously.
 
-**CRITICAL**: Every teammate MUST be spawned with `run_in_background: true`. Without this, the orchestrator blocks on each Task call until that teammate finishes ALL its work — defeating parallelism entirely.
+**CRITICAL requirements for teammate spawning:**
+
+1. Every teammate MUST use `subagent_type: "general-purpose"` — NOT `"rust-developer"` or other custom agents. Custom agents lack team coordination tools (`SendMessage`, `TaskList`, `TaskUpdate`, `TaskGet`). Only `"general-purpose"` has access to ALL tools (Tools: `*`), which is required for teammates to self-claim tasks, update status, and report back.
+
+2. Every teammate MUST be spawned with `run_in_background: true`. Without this, the orchestrator blocks on each Task call until that teammate finishes ALL its work — defeating parallelism entirely.
 
 ```
 Task:
-  subagent_type: "rust-developer"
+  subagent_type: "general-purpose"
   team_name: "spec-impl"
   name: "impl-1"
   run_in_background: true
@@ -545,7 +549,7 @@ Present to the user:
 8. **Context budget** — give each subagent or teammate only CLAUDE.md, the relevant spec files, the relevant source files, and a self-contained task description.
 9. **Task lifecycle is MANDATORY** — `TaskCreate` → teammate claims via `TaskUpdate(owner + in_progress)` → work → verify → `TaskUpdate(completed)`. Never skip status updates; they unblock dependent tasks.
 10. **Team before tasks, tasks before teammates** — Phase 3.1 (TeamCreate) → 3.2 (TaskCreate) → 3.3 (spawn teammates). Tasks created without a team land in the wrong list. No exceptions.
-11. **Teammates are spawned via Task with team_name + run_in_background** — `TeamCreate` creates the container. `Task` with `team_name`, `name`, and `run_in_background: true` spawns actual agents. Without `run_in_background`, teammates run sequentially, not in parallel.
+11. **Teammates MUST use `subagent_type: "general-purpose"`** — Custom agents (e.g., `rust-developer`) lack team coordination tools (`SendMessage`, `TaskList`, `TaskUpdate`, `TaskGet`). Only `"general-purpose"` has access to all tools. Teammates are spawned via `Task` with `team_name`, `name`, `subagent_type: "general-purpose"`, and `run_in_background: true`. Without `run_in_background`, teammates run sequentially.
 12. **Teammates self-claim tasks** — Teammates find unblocked unclaimed tasks via `TaskList` and claim them with `TaskUpdate(owner)`. This is more resilient than leader-assignment.
 13. **Clean shutdown** — Always send `shutdown_request` to all teammates and call `TeamDelete` when done.
 14. **User checkpoints are mandatory** — `AskUserQuestion` gates between discovery→synthesis and synthesis→execution. The user must approve before code is written.
@@ -563,5 +567,7 @@ Present to the user:
 **Teammate goes idle** — This is normal. Teammates go idle between turns. Send them a new `SendMessage` to wake them up with new work. Do NOT treat idle as an error or spawn a replacement.
 
 **Discovery subagent can't SendMessage** — This is by design. Fire-and-done `Task` subagents (no `team_name`) communicate via their Task return value, not `SendMessage`. Only team-member teammates (spawned with `team_name`) can use `SendMessage`.
+
+**Teammates not responding / not claiming tasks** — Verify `subagent_type: "general-purpose"` on every teammate spawn. Custom agents like `rust-developer` only have code editing tools (Read, Write, Edit, Bash, Glob, Grep, LSP) and lack `SendMessage`, `TaskList`, `TaskUpdate`, `TaskGet`. Without these, teammates cannot see the task list, claim work, or report back. Only `"general-purpose"` (Tools: `*`) has all team coordination tools.
 
 **No parallelism despite multiple teammates** — Verify every teammate `Task` call includes `run_in_background: true`. Without it, the orchestrator blocks on each spawn until that teammate finishes, making execution sequential.
