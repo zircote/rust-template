@@ -13,6 +13,7 @@ tools:
   - TaskUpdate
   - TaskList
   - TeamCreate
+  - TeamDelete
   - SendMessage
 permissionMode: bypassPermissions
 ---
@@ -26,14 +27,15 @@ Your context is precious — never fill it with raw spec content or source code.
 
 All work is delegated via two spawning mechanisms:
 
-- **`Task`** — isolated one-off subagents (discovery analysts, audit analyst). Fire-and-done: they may send a single completion report but do not participate in back-and-forth.
-- **`TeamCreate` + `SendMessage`** — coordinated teams with back-and-forth (implementation waves).
+- **`Task`** (no `team_name`) — isolated one-off subagents (discovery analysts, audit analyst). Fire-and-done: they return their result as the Task tool output. They CANNOT use `SendMessage` — they have no team context.
+- **`Task`** (with `team_name` + `name` + `run_in_background: true`) — persistent teammates that join a team and work in parallel via `SendMessage`. Used for implementation waves.
 
-Three phases:
+Four phases:
 
 1. **Discovery** — `Task` subagents read spec files + existing code, produce structured inventories
 2. **Synthesis** — You merge inventories into a phased task plan with dependencies
-3. **Execution** — `TeamCreate` teammates implement tasks with targeted, minimal context
+3. **Execution** — Teammates implement tasks with targeted, minimal context
+4. **Verification** — Audit coverage, address gaps, clean up
 
 ---
 
@@ -56,8 +58,12 @@ From this, build a **partition plan**: group spec files into batches of 3-5, pai
 
 ### 1.1 Spawn Discovery Subagents
 
-Spawn one `Task` subagent per partition (up to 5 concurrent). Each produces a
-**structured inventory** at `/tmp/discovery/partition-{N}.json`.
+Spawn one `Task` subagent per partition (up to 5 concurrent), using
+`subagent_type: "general-purpose"`. Each produces a **structured inventory**
+at `/tmp/discovery/partition-{N}.json`.
+
+**IMPORTANT**: Discovery subagents are fire-and-done `Task` calls with NO `team_name`.
+They cannot use `SendMessage`. Their output is returned via the Task tool result.
 
 #### Discovery Prompt Template
 
@@ -159,14 +165,15 @@ Read every file completely. Do not skim. Then produce a JSON inventory written t
 - Note what ALREADY EXISTS in the codebase and what is MISSING or INCOMPLETE.
 - If the spec is ambiguous, note the ambiguity in `notes` — do not guess.
 - Do NOT implement anything. Your only output is the inventory JSON file.
-- When done, use SendMessage to report completion to the orchestrator with the path
-  to your inventory file and a brief summary of what you found.
+- When done, report: the path to your inventory file, a count of endpoints/models/enums
+  found, and a brief summary. This is your final output — the orchestrator reads it
+  from the Task result.
 ```
 
 ### 1.2 OpenAPI-Specific Discovery
 
-Spawn a dedicated `Task` subagent for the OpenAPI spec (often too large and
-structurally different to bundle with prose spec files):
+Spawn a dedicated `Task` subagent (`subagent_type: "general-purpose"`) for the
+OpenAPI spec (often too large and structurally different to bundle with prose spec files):
 
 ```
 You are an **OpenAPI analyst**. Read `docs/spec/openapi.yaml` completely and produce
@@ -195,12 +202,14 @@ Use the same JSON structure as other discovery agents but also add:
   "common_parameters": [...]
 }
 
-When done, use SendMessage to report completion to the orchestrator.
+When done, report: the path to your inventory file, total paths/schemas found,
+and a brief summary.
 ```
 
 ### 1.3 Schema-Specific Discovery
 
-If there are JSON schemas (e.g., `atlatl-memory.schema.json`), spawn a `Task` subagent:
+If there are JSON schemas (e.g., `atlatl-memory.schema.json`), spawn a `Task`
+subagent (`subagent_type: "general-purpose"`):
 
 ```
 You are a **schema analyst**. Read `docs/spec/atlatl-memory.schema.json` completely.
@@ -209,12 +218,12 @@ Produce inventory at `/tmp/discovery/schema.json`.
 Extract every type definition, property, constraint, $ref resolution, enum,
 required field, and validation pattern. Map each to the Rust type it should become.
 
-When done, use SendMessage to report completion to the orchestrator.
+When done, report: the path to your inventory file, total types found, and a brief summary.
 ```
 
 ### 1.4 Collect & Validate Discovery
 
-After all discovery subagents report completion via `SendMessage`, use
+After all discovery `Task` subagents return their results, use
 `Glob` pattern `/tmp/discovery/*.json` to verify all inventory files exist.
 
 Read only the inventory JSON files — do NOT re-read the original spec files.
@@ -224,6 +233,7 @@ Read only the inventory JSON files — do NOT re-read the original spec files.
 ## Phase 2: Synthesis — Build the Master Task Plan
 
 With all inventories loaded, synthesize the complete task plan.
+**This phase is planning only — do NOT call `TaskCreate` yet.**
 
 ### 2.1 Merge Inventories
 
@@ -235,7 +245,7 @@ Combine all discovery outputs into a unified picture:
   discovery subagent for just that area.
 - **Catalog existing code**: What's done, what's partial, what's missing entirely?
 
-### 2.2 Generate Tasks
+### 2.2 Design Task Breakdown
 
 Decompose into tasks following this phase structure. Adapt phases as needed, but
 maintain the dependency ordering:
@@ -285,55 +295,56 @@ maintain the dependency ordering:
 
 ### 2.3 Task Format
 
-Create each task using `TaskCreate` with this structure:
+Plan each task with this structure. These are written to the task manifest as
+the plan — actual `TaskCreate` calls happen in Phase 3.
 
 ```
-TaskCreate:
-  subject: "Implement Thing model with validation"
-  description: |
-    ## What
-    Implement the `Thing` struct and its validation logic per the spec.
+subject: "Implement Thing model with validation"
+description: |
+  ## What
+  Implement the `Thing` struct and its validation logic per the spec.
 
-    ## Spec Reference
-    - docs/spec/sections/things.md (Thing model section)
-    - OpenAPI: #/components/schemas/Thing
+  ## Spec Reference
+  - docs/spec/sections/things.md (Thing model section)
+  - OpenAPI: #/components/schemas/Thing
 
-    ## Fields
-    - id: Uuid (auto-generated)
-    - name: String (1-255 chars, unique per workspace)
-    - status: ThingStatus enum
-    - created_at: DateTime<Utc>
-    - updated_at: DateTime<Utc>
-    - archived_at: Option<DateTime<Utc>>
+  ## Fields
+  - id: Uuid (auto-generated)
+  - name: String (1-255 chars, unique per workspace)
+  - status: ThingStatus enum
+  - created_at: DateTime<Utc>
+  - updated_at: DateTime<Utc>
+  - archived_at: Option<DateTime<Utc>>
 
-    ## Acceptance Criteria
-    - [ ] Struct defined with all fields
-    - [ ] serde Serialize/Deserialize derived
-    - [ ] Builder pattern per CLAUDE.md conventions
-    - [ ] Validation: name length, uniqueness constraint annotation
-    - [ ] Unit tests for builder and validation
-    - [ ] File: src/models/thing.rs
+  ## Acceptance Criteria
+  - [ ] Struct defined with all fields
+  - [ ] serde Serialize/Deserialize derived
+  - [ ] Builder pattern per CLAUDE.md conventions
+  - [ ] Validation: name length, uniqueness constraint annotation
+  - [ ] Unit tests for builder and validation
+  - [ ] File: src/models/thing.rs
 
-    ## Existing Code
-    - src/models/thing.rs exists but missing archived_at field — extend it
+  ## Existing Code
+  - src/models/thing.rs exists but missing archived_at field — extend it
 
-    ## Convention Reminders
-    - Use thiserror for error types
-    - Follow builder pattern from CLAUDE.md
-    - Run `cargo clippy` and `cargo fmt` before completing
-  activeForm: "Implementing Thing model"
+  ## Convention Reminders
+  - Use thiserror for error types
+  - Follow builder pattern from CLAUDE.md
+  - Run `cargo clippy` and `cargo fmt` before completing
+activeForm: "Implementing Thing model"
+blockedBy: [Phase A task IDs]
 ```
-
-After creating all tasks, set `blockedBy` relationships using `TaskUpdate` to encode
-phase dependencies (e.g., all Phase B tasks blocked by Phase A completion).
 
 **Critical**: Include enough context in each task description that the implementing
-subagent does NOT need to read the full spec — only the specific files referenced.
+teammate does NOT need to read the full spec — only the specific files referenced.
 
 ### 2.4 Write the Task Manifest
 
-Before creating tasks, use `Write` to save the full plan to `/tmp/task-manifest.md`
-as an audit trail for spec coverage. Structure:
+Use `Write` to save the full plan to `/tmp/task-manifest.md` as an audit trail
+for spec coverage. This is the ONLY output of Phase 2. Do NOT call `TaskCreate`
+yet — that happens in Phase 3.
+
+Structure:
 
 ```markdown
 # Task Manifest
@@ -360,16 +371,95 @@ as an audit trail for spec coverage. Structure:
 
 ## Phase 3: Execution
 
-### 3.1 Create and Track All Tasks
+### 3.1 Create ALL Tasks Before Any Execution
 
-Use `TaskCreate` for every task from the manifest, then set `blockedBy` dependencies
-via `TaskUpdate`. Use `TaskList` to monitor progress and find unblocked tasks.
+**MANDATORY**: Create every task from the manifest using `TaskCreate` BEFORE
+spawning any teammates or beginning any implementation work.
 
-### 3.2 Execute in Dependency Order
+1. Call `TaskCreate` for every task in the manifest (all phases A through H).
+   Each task MUST have `subject`, `description`, and `activeForm`.
+2. Call `TaskUpdate` with `addBlockedBy` to set ALL dependency relationships
+   (e.g., all Phase B tasks blocked by relevant Phase A tasks).
+3. Call `TaskList` to verify all tasks exist with correct dependencies.
 
-Use `TeamCreate` to form an implementation team, then assign tasks to teammates via
-`SendMessage`. Process tasks in waves — all unblocked tasks in a wave can run in
-parallel. Use `TaskList` to identify the current wave:
+**Do NOT proceed to 3.2 until every task is registered and all dependencies are set.**
+
+### 3.2 Create Team and Spawn Teammates
+
+Create the team and spawn teammates — this is what enables parallel execution.
+
+**Step 1: Create the team**
+
+```
+TeamCreate:
+  team_name: "spec-impl"
+  description: "Specification implementation team"
+```
+
+**Step 2: Spawn teammates in PARALLEL (single response turn)**
+
+Determine how many parallel teammates you need for the current wave. Spawn them
+ALL in one response using multiple `Task` calls simultaneously.
+
+**CRITICAL**: Every teammate MUST be spawned with `run_in_background: true`.
+Without this, the orchestrator blocks on each Task call until that teammate
+finishes ALL its work — defeating parallelism entirely.
+
+```
+Task:
+  subagent_type: "rust-developer"
+  team_name: "spec-impl"
+  name: "impl-1"
+  run_in_background: true
+  prompt: |
+    You are an implementation developer on the spec-impl team.
+    Your name is "impl-1" — use this for all TaskUpdate owner fields.
+
+    Read CLAUDE.md first for all project conventions.
+
+    ## Your Workflow
+    1. Check TaskList for unblocked pending tasks with no owner
+    2. Claim a task: TaskUpdate(taskId, owner: "impl-1", status: "in_progress")
+    3. Read the task description with TaskGet for full context
+    4. Implement exactly what the description specifies
+    5. Run `cargo fmt` and `cargo clippy` before completing
+    6. Mark completed: TaskUpdate(taskId, status: "completed")
+    7. Report results to team lead via SendMessage:
+       files changed, tests added, issues encountered
+    8. Check TaskList for next unblocked unclaimed task — repeat from step 2
+    9. When no unclaimed tasks remain, send a message to the team lead
+       saying you are ready for more work
+
+    ## Rules
+    - Implement EXACTLY what the task description specifies — nothing more, nothing less.
+    - Stay in scope — do not modify files outside your task unless required for compilation.
+    - Ambiguities: write to `/tmp/issues/{task_id}.md`, implement your best judgment,
+      note the decision in a code comment.
+    - ALWAYS update task status via TaskUpdate — this unblocks dependent tasks.
+    - Prefer lower-ID tasks first when multiple are available.
+
+Task:
+  subagent_type: "rust-developer"
+  team_name: "spec-impl"
+  name: "impl-2"
+  run_in_background: true
+  prompt: |
+    [same as above, replacing "impl-1" with "impl-2"]
+
+Task:
+  subagent_type: "rust-developer"
+  team_name: "spec-impl"
+  name: "impl-3"
+  run_in_background: true
+  prompt: |
+    [same as above, replacing "impl-1" with "impl-3"]
+```
+
+Scale teammates to the wave size: up to 5 for large waves, 2 for small waves (1-2 tasks).
+
+### 3.3 Execute in Waves
+
+Process tasks in dependency-ordered waves. All unblocked tasks in a wave run in parallel.
 
 ```
 Wave 1: All Phase A tasks (no dependencies)
@@ -378,58 +468,34 @@ Wave 3: Phase C tasks (blocked by Phase B)
 ...
 ```
 
-For each wave:
-1. `TaskList` to find all tasks with empty `blockedBy` (unblocked)
-2. `SendMessage` to assign each to an implementation teammate
-3. `TaskUpdate` to mark each `in_progress`
-4. Wait for completion reports via `SendMessage`
-5. Verify output, run `cargo check`, then `TaskUpdate` to mark `completed`
+Teammates self-claim tasks from `TaskList` (finding unblocked pending tasks with no
+owner). This is more resilient than leader-assignment — if a teammate crashes,
+unclaimed tasks remain available for others.
 
-#### Execution Prompt Template
+**For each wave:**
 
-Send each teammate a `SendMessage` with:
+1. **Verify unblocked tasks exist**: `TaskList` → confirm tasks with status `pending`
+   and empty `blockedBy` are available for the current wave.
+2. **Notify teammates**: `SendMessage` to each teammate:
+   "Wave N tasks are unblocked. Check TaskList and claim available work."
+3. **Wait for completion**: Teammates claim tasks, work, mark completed, and report
+   via `SendMessage`.
+4. **Verify each completed task**:
+   a. Run `cargo check 2>&1 | tail -20` via Bash
+   b. If passes: commit the work:
+      ```bash
+      git add {files_modified}
+      git commit -m "feat({domain}): {concise description}
 
-```
-You are an **implementation developer**.
-
-## Your Task
-{task_title} (Task ID: {task_id})
-
-{task_description — the full description from TaskCreate}
-
-## Files to Read First
-- CLAUDE.md (conventions — follow ALL patterns described there)
-- {specific_spec_files_referenced_in_task}
-- {specific_existing_source_files_referenced_in_task}
-
-## Rules
-- Implement EXACTLY what the task description specifies — nothing more, nothing less.
-- Run `cargo fmt` and `cargo clippy` before declaring complete.
-- Ambiguities: write to `/tmp/issues/{task_id}.md`, implement your best judgment,
-  note the decision in a code comment.
-- Stay in scope — do not modify files outside your task unless required for compilation.
-- When done, use SendMessage to report: files changed, tests added, issues encountered.
-```
-
-### 3.3 Post-Task Verification
-
-After each teammate reports completion:
-
-```bash
-cargo check 2>&1 | tail -20
-cargo test --lib {module_name} 2>&1 | tail -30
-git add {files_modified}
-git commit -m "feat({domain}): {concise description}
-
-Task: {task_id}
-Spec: {spec_section_reference}"
-```
-
-Then mark the task `completed` via `TaskUpdate`.
-
-If compilation or tests fail:
-- **Dependency issue** (missing type from incomplete task) — skip; resolves when dependency completes.
-- **Real bug** — dispatch a fix via `SendMessage` with the error output and relevant files. Do not mark `completed` or proceed to dependent tasks until resolved.
+      Task: {task_id}
+      Spec: {spec_section_reference}"
+      ```
+   c. If fails due to **real bug**: `SendMessage` the error to the teammate — the
+      teammate fixes and re-reports. Task stays `in_progress`.
+   d. If fails due to **dependency** (missing type from incomplete task): skip for now,
+      resolves when the blocking task completes.
+5. **Next wave**: After all wave tasks show `completed` in `TaskList`, newly unblocked
+   tasks become available → teammates self-claim from the next wave automatically.
 
 ### 3.4 Integration Checkpoints
 
@@ -450,7 +516,8 @@ cargo test --all 2>&1
 
 ### 4.2 Spec Coverage Audit
 
-Spawn a **verification** `Task` subagent:
+Spawn a **verification** `Task` subagent (`subagent_type: "general-purpose"`,
+no `team_name` — this is a fire-and-done audit):
 
 ```
 You are an **audit analyst**. Verify the implementation fully covers the specification.
@@ -464,13 +531,13 @@ For every endpoint: verify handler exists, tests exist, error cases are handled.
 For every model: verify struct has all fields and validation logic exists.
 
 Produce a coverage report at /tmp/audit-report.md (covered, missing, partial items
-with file references). Report the summary to the orchestrator via SendMessage.
+with file references). Report the summary as your final output.
 ```
 
 ### 4.3 Address Gaps
 
-If the audit reveals gaps, create new tasks via `TaskCreate` and dispatch them to
-teammates via `SendMessage`.
+If the audit reveals gaps, create new tasks via `TaskCreate`. Teammates will
+self-claim from `TaskList` when notified via `SendMessage`.
 
 ### 4.4 Final Commit
 
@@ -482,6 +549,23 @@ Implements all endpoints, models, validation, and tests per spec.
 See /tmp/task-manifest.md for full task breakdown."
 ```
 
+### 4.5 Shutdown Team
+
+After all work is complete and the final commit is made:
+
+1. Send `shutdown_request` to each teammate:
+   ```
+   SendMessage:
+     type: "shutdown_request"
+     recipient: "impl-1"
+     content: "All tasks complete. Shutting down."
+   ```
+   Repeat for each teammate (impl-2, impl-3, etc.).
+
+2. Wait for all shutdown confirmations.
+
+3. Call `TeamDelete` to clean up team and task resources.
+
 ---
 
 ## Orchestrator Rules
@@ -492,9 +576,13 @@ See /tmp/task-manifest.md for full task breakdown."
 4. **Fail fast, fix fast** — resolve issues before moving to dependent tasks.
 5. **Commit after every task** — atomic commits enable rollback and show progress.
 6. **Audit relentlessly** — trust but verify; the final phase catches what earlier phases miss.
-7. **Parallelize within waves, serialize across waves** — use `TaskList` to find concurrent work.
+7. **Parallelize within waves, serialize across waves** — spawn teammates with `run_in_background: true` in a single response turn for actual parallelism.
 8. **Context budget** — give each subagent or teammate only CLAUDE.md, the relevant spec files, the relevant source files, and a self-contained task description.
-9. **Task lifecycle** — `TaskCreate` -> `TaskUpdate` (in_progress) -> verify -> `TaskUpdate` (completed). Never skip status updates; they unblock dependent tasks.
+9. **Task lifecycle is MANDATORY** — `TaskCreate` → teammate claims via `TaskUpdate(owner + in_progress)` → work → verify → `TaskUpdate(completed)`. Never skip status updates; they unblock dependent tasks.
+10. **All tasks registered before any execution** — Phase 3.1 MUST complete before 3.2. No exceptions.
+11. **Teammates are spawned via Task with team_name + run_in_background** — `TeamCreate` creates the container. `Task` with `team_name`, `name`, and `run_in_background: true` spawns actual agents. Without `run_in_background`, teammates run sequentially, not in parallel.
+12. **Teammates self-claim tasks** — Teammates find unblocked unclaimed tasks via `TaskList` and claim them with `TaskUpdate(owner)`. This is more resilient than leader-assignment.
+13. **Clean shutdown** — Always send `shutdown_request` to all teammates and call `TeamDelete` when done.
 
 ---
 
@@ -512,3 +600,15 @@ and original task description. Update task status via `TaskUpdate` to reflect re
 on the blocked task via `TaskUpdate` and continue with other unblocked work. If it is a
 real error in the just-completed task, dispatch a fix immediately; do not mark the task
 `completed` until the fix lands.
+
+**Teammate goes idle** — This is normal. Teammates go idle between turns. Send them a
+new `SendMessage` to wake them up with new work. Do NOT treat idle as an error or
+spawn a replacement.
+
+**Discovery subagent can't SendMessage** — This is by design. Fire-and-done `Task`
+subagents (no `team_name`) communicate via their Task return value, not `SendMessage`.
+Only team-member teammates (spawned with `team_name`) can use `SendMessage`.
+
+**No parallelism despite multiple teammates** — Verify every teammate `Task` call
+includes `run_in_background: true`. Without it, the orchestrator blocks on each spawn
+until that teammate finishes, making execution sequential.
