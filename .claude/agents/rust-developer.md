@@ -3,7 +3,7 @@ name: rust-developer
 description: Primary development agent for this Rust project. Handles implementation, testing, and ownership/borrowing patterns. Use for writing safe, performant Rust code.
 model: inherit
 color: red
-tools: Read, Write, Edit, Bash, Glob, Grep, LSP
+tools: Read, Write, Edit, Bash, Glob, Grep, LSP, SendMessage, TaskList, TaskGet, TaskCreate, TaskUpdate
 ---
 
 # Rust Developer Agent
