@@ -15,14 +15,27 @@ allowed-tools:
   - TeamDelete
   - SendMessage
   - AskUserQuestion
-argument-hint: "[spec-directory]"
+argument-hint: "[--auto] [spec-directory]"
 ---
 
 # Spec Orchestrator Command
 
 You are now running the **spec-orchestrator** procedure. You will execute this step-by-step in the main conversation, keeping the user informed at every phase. Heavy work (reading specs, writing code) is delegated to `Task` subagents. You orchestrate the lifecycle.
 
-**Spec directory**: Use `$ARGUMENTS` if provided, otherwise default to `docs/spec/`.
+## Argument Parsing
+
+Parse `$ARGUMENTS` for flags and the spec directory:
+
+- **`--auto`**: Autonomous mode. Skip all `AskUserQuestion` checkpoints, accept all recommendations as-is, and perform maximum work identified. Log decisions to `/tmp/orchestrator-decisions.md` instead of asking.
+- **Spec directory**: Any argument that is not a flag. Defaults to `docs/spec/`.
+
+Examples:
+- `/spec-orchestrator` → interactive mode, `docs/spec/`
+- `/spec-orchestrator docs/api-spec/` → interactive mode, `docs/api-spec/`
+- `/spec-orchestrator --auto` → autonomous mode, `docs/spec/`
+- `/spec-orchestrator --auto docs/api-spec/` → autonomous mode, `docs/api-spec/`
+
+Set `AUTO_MODE=true` if `--auto` is present, `false` otherwise.
 
 ---
 
@@ -203,10 +216,10 @@ After all discovery `Task` subagents return their results, use `Glob` pattern `/
 
 ### 1.5 User Checkpoint
 
-**MANDATORY**: Use `AskUserQuestion` to present discovery results to the user:
-- Summary of what was found (endpoint count, model count, gaps)
-- Ask if discovery looks complete or if additional areas need investigation
-- Do NOT proceed to Phase 2 until the user confirms
+Present a summary of discovery results (endpoint count, model count, gaps).
+
+- **Interactive mode** (`AUTO_MODE=false`): Use `AskUserQuestion` to ask if discovery looks complete or if additional areas need investigation. Do NOT proceed to Phase 2 until the user confirms.
+- **Autonomous mode** (`AUTO_MODE=true`): Log the summary to `/tmp/orchestrator-decisions.md` with the heading `## Phase 1: Discovery Results — Auto-Accepted`. Proceed immediately to Phase 2.
 
 ---
 
@@ -343,11 +356,10 @@ Structure:
 
 ### 2.5 User Checkpoint — Plan Approval
 
-**MANDATORY**: Use `AskUserQuestion` to present the task manifest to the user:
-- Show the task breakdown with dependency graph
-- Show the spec coverage audit
-- Ask the user to approve the plan before any code is written
-- Do NOT proceed to Phase 3 until the user explicitly approves
+Present the task breakdown with dependency graph and spec coverage audit.
+
+- **Interactive mode** (`AUTO_MODE=false`): Use `AskUserQuestion` to ask the user to approve the plan before any code is written. Do NOT proceed to Phase 3 until the user explicitly approves.
+- **Autonomous mode** (`AUTO_MODE=true`): Log the full task manifest to `/tmp/orchestrator-decisions.md` with the heading `## Phase 2: Task Plan — Auto-Accepted`. Proceed immediately to Phase 3.
 
 ---
 
@@ -552,7 +564,7 @@ Present to the user:
 11. **Teammate agent types MUST include team coordination tools** — Any agent used as a teammate needs `SendMessage`, `TaskList`, `TaskGet`, `TaskCreate`, `TaskUpdate` in its tool list. The `rust-developer` agent includes these. If using a custom agent, verify its tools first. Teammates are spawned via `Task` with `team_name`, `name`, and `run_in_background: true`.
 12. **Teammates self-claim tasks** — Teammates find unblocked unclaimed tasks via `TaskList` and claim them with `TaskUpdate(owner)`. This is more resilient than leader-assignment.
 13. **Clean shutdown** — Always send `shutdown_request` to all teammates and call `TeamDelete` when done.
-14. **User checkpoints are mandatory** — `AskUserQuestion` gates between discovery→synthesis and synthesis→execution. The user must approve before code is written.
+14. **User checkpoints are mandatory in interactive mode** — `AskUserQuestion` gates between discovery→synthesis and synthesis→execution. In `--auto` mode, checkpoints are logged to `/tmp/orchestrator-decisions.md` and auto-accepted. The user can review decisions after completion.
 
 ---
 
