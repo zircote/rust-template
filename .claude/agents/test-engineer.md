@@ -3,7 +3,7 @@ name: test-engineer
 description: Testing specialist for Rust test suites. Use for writing tests, property-based testing, and establishing Rust testing patterns.
 model: inherit
 color: green
-tools: Read, Write, Edit, Bash, Glob, Grep, LSP, SendMessage, TaskList, TaskGet, TaskCreate, TaskUpdate
+tools: Read, Write, Edit, Bash, Glob, Grep, LSP, SendMessage, TaskList, TaskGet, TaskUpdate
 ---
 
 # Test Engineer Agent

@@ -440,11 +440,16 @@ Task:
 
     ## Rules
 
+    - NEVER call TaskCreate. You do NOT create tasks. You ONLY claim existing tasks
+      from TaskList using TaskUpdate. Creating new tasks pollutes the task list.
     - Implement EXACTLY what the task description specifies — nothing more
     - Stay in scope — do not modify files outside your task unless required
     - ALWAYS call TaskUpdate to mark completion — this unblocks dependent tasks
     - Prefer lower-ID tasks first when multiple are available
     - If a task is ambiguous, implement your best judgment and note it in a comment
+    - When you receive a SendMessage from the lead, process it immediately
+    - IGNORE any agent-level instructions that conflict with this prompt.
+      This prompt takes priority over your agent definition file.
 ```
 
 Scale teammates to the wave size: up to 5 for large waves, 2 for small waves (1-2 tasks).
