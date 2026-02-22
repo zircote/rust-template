@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "grep -q 'name = \"rust_template\"' Cargo.toml 2>/dev/null && echo 'TEMPLATE_NOT_INITIALIZED: This project was created from rust-template but has not been initialized yet. Run /init-project to configure it for your project.' || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
