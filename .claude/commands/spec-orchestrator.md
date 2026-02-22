@@ -403,32 +403,48 @@ Task:
   team_name: "spec-impl"
   name: "impl-1"
   run_in_background: true
+  max_turns: 200
   prompt: |
-    You are an implementation developer on the spec-impl team.
-    Your name is "impl-1" — use this for all TaskUpdate owner fields.
+    YOU MUST START WORKING IMMEDIATELY. Do not wait for instructions.
 
-    Read CLAUDE.md first for all project conventions.
+    You are "impl-1" on the spec-impl team. Use "impl-1" as your owner name.
 
-    ## Your Workflow
-    1. Check TaskList for unblocked pending tasks with no owner
-    2. Claim a task: TaskUpdate(taskId, owner: "impl-1", status: "in_progress")
-    3. Read the task description with TaskGet for full context
-    4. Implement exactly what the description specifies
-    5. Run `cargo fmt` and `cargo clippy` before completing
-    6. Mark completed: TaskUpdate(taskId, status: "completed")
-    7. Report results to team lead via SendMessage:
-       files changed, tests added, issues encountered
-    8. Check TaskList for next unblocked unclaimed task — repeat from step 2
-    9. When no unclaimed tasks remain, send a message to the team lead
-       saying you are ready for more work
+    ## IMMEDIATE FIRST ACTION — DO THIS NOW
+
+    1. Call TaskList RIGHT NOW to see available tasks
+    2. Find the first task with status "pending", no owner, and empty blockedBy
+    3. Claim it: TaskUpdate(taskId, owner: "impl-1", status: "in_progress")
+    4. Call TaskGet(taskId) to read the full description
+    5. Implement exactly what it specifies
+
+    DO NOT read CLAUDE.md first. DO NOT explore the codebase first.
+    Claim a task IMMEDIATELY, then read CLAUDE.md only if needed for conventions.
+
+    ## After Each Task
+
+    1. Run `cargo fmt && cargo clippy -- -D warnings` via Bash
+    2. Mark done: TaskUpdate(taskId, status: "completed")
+    3. Report to lead: SendMessage(type: "message", recipient: "lead",
+       content: "Completed task {id}: {summary}. Files: {list}",
+       summary: "Task {id} done")
+    4. Call TaskList again and claim the next available task
+    5. Repeat until no unclaimed unblocked tasks remain
+
+    ## When No Tasks Available
+
+    Send a message to the lead:
+    SendMessage(type: "message", recipient: "lead",
+      content: "No unclaimed tasks available. Ready for more work.",
+      summary: "impl-1 idle, no tasks")
+    Then WAIT for a response. Do not exit.
 
     ## Rules
-    - Implement EXACTLY what the task description specifies — nothing more, nothing less.
-    - Stay in scope — do not modify files outside your task unless required for compilation.
-    - Ambiguities: write to `/tmp/issues/{task_id}.md`, implement your best judgment,
-      note the decision in a code comment.
-    - ALWAYS update task status via TaskUpdate — this unblocks dependent tasks.
-    - Prefer lower-ID tasks first when multiple are available.
+
+    - Implement EXACTLY what the task description specifies — nothing more
+    - Stay in scope — do not modify files outside your task unless required
+    - ALWAYS call TaskUpdate to mark completion — this unblocks dependent tasks
+    - Prefer lower-ID tasks first when multiple are available
+    - If a task is ambiguous, implement your best judgment and note it in a comment
 ```
 
 Scale teammates to the wave size: up to 5 for large waves, 2 for small waves (1-2 tasks).
@@ -576,10 +592,15 @@ Present to the user:
 
 **`cargo check` failure after a task** — If caused by an incomplete dependency, note it on the blocked task via `TaskUpdate` and continue with other unblocked work. If it is a real error in the just-completed task, dispatch a fix immediately; do not mark the task `completed` until the fix lands.
 
-**Teammate goes idle** — This is normal. Teammates go idle between turns. Send them a new `SendMessage` to wake them up with new work. Do NOT treat idle as an error or spawn a replacement.
+**Teammate goes idle immediately after spawn** — The teammate prompt may not be directive enough. The prompt MUST start with an imperative action ("Call TaskList RIGHT NOW") not a description of the workflow. Teammates that receive descriptive prompts ("Your workflow is...") may wait for further instructions instead of acting. Also ensure `max_turns` is set high enough (200+) so teammates don't exhaust their turn budget mid-task.
+
+**Teammate goes idle between tasks** — This is normal. Teammates go idle between turns. Send them a new `SendMessage` to wake them up with new work. Do NOT treat idle as an error or spawn a replacement.
 
 **Discovery subagent can't SendMessage** — This is by design. Fire-and-done `Task` subagents (no `team_name`) communicate via their Task return value, not `SendMessage`. Only team-member teammates (spawned with `team_name`) can use `SendMessage`.
 
-**Teammates not responding / not claiming tasks** — Verify the agent type's tool list includes team coordination tools: `SendMessage`, `TaskList`, `TaskUpdate`, `TaskGet`, `TaskCreate`. Without these, teammates cannot see the task list, claim work, or report back. Check the agent's `.md` file in `.claude/agents/` and add missing tools to the `tools:` frontmatter field.
+**Teammates not responding / not claiming tasks** — Three possible causes:
+1. **Missing tools**: Verify the agent type's tool list includes `SendMessage`, `TaskList`, `TaskUpdate`, `TaskGet`, `TaskCreate`. Check `.claude/agents/*.md` and add missing tools.
+2. **Tasks in wrong namespace**: Tasks created before `TeamCreate` land in the default task list, not the team's. Always create the team FIRST.
+3. **Passive prompt**: The teammate prompt must command immediate action, not describe a workflow. Start with "Call TaskList RIGHT NOW" not "Your workflow is to check TaskList."
 
 **No parallelism despite multiple teammates** — Verify every teammate `Task` call includes `run_in_background: true`. Without it, the orchestrator blocks on each spawn until that teammate finishes, making execution sequential.
