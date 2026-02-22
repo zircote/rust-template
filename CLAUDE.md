@@ -44,6 +44,7 @@ just check            # Full CI check (fmt + clippy + test + doc + deny)
 just build            # Debug build
 just build-release    # Release build
 just run              # Run the binary
+just template-sync    # Sync shared tooling from rust-template upstream
 ```
 
 <details>

@@ -116,6 +116,44 @@ fuzz TARGET DURATION="60":
 mutants:
     cargo mutants --output mutants.out --json
 
+# === Template Sync ===
+
+# Template upstream repository
+template_repo := "zircote/rust-template"
+template_branch := "main"
+
+# Sync shared tooling from the rust-template upstream
+template-sync:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    TMPDIR=$(mktemp -d)
+    trap 'rm -rf "$TMPDIR"' EXIT
+    echo "Fetching latest template from {{ template_repo }}..."
+    git clone --depth 1 --branch {{ template_branch }} \
+        "https://github.com/{{ template_repo }}.git" "$TMPDIR/template" 2>/dev/null
+    SYNC_PATHS=( \
+        ".claude/agents" \
+        ".claude/commands/spec-orchestrator.md" \
+        "clippy.toml" \
+        "rustfmt.toml" \
+        "deny.toml" \
+    )
+    for p in "${SYNC_PATHS[@]}"; do
+        src="$TMPDIR/template/$p"
+        if [ -e "$src" ]; then
+            mkdir -p "$(dirname "$p")"
+            if [ -d "$src" ]; then
+                cp -R "$src/." "$p/"
+            else
+                cp "$src" "$p"
+            fi
+            echo "  synced: $p"
+        else
+            echo "  skip (not in template): $p"
+        fi
+    done
+    echo "Done. Review changes with: git diff"
+
 # === Release ===
 
 # Dry-run a crates.io publish
