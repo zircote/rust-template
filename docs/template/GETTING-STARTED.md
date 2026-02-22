@@ -62,12 +62,30 @@ cargo test
 | Rust edition | **2024** |
 | cargo-deny (optional, for supply chain checks) | latest stable |
 
-Install the latest Rust toolchain with [rustup](https://rustup.rs/):
+Install the Rust toolchain using the official [rustup](https://rustup.rs/) installer:
 
 ```bash
+# Install rustup (do NOT use Homebrew — `brew install rust` installs an
+# unmanaged toolchain that cannot switch versions, add targets, or run
+# `rustup` commands used throughout this project)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Follow the on-screen prompts, then reload your shell:
+source "$HOME/.cargo/env"
+
+# Set the default toolchain and verify
 rustup default stable
 rustup update
+rustc --version   # should print 1.92.0 or newer
 ```
+
+> **Already have Homebrew's `rust` or `rust-analyzer` formula?** Remove it first to avoid conflicts:
+>
+> ```bash
+> brew uninstall rust rust-analyzer 2>/dev/null
+> ```
+>
+> rustup manages both `rustc` and `rust-analyzer` automatically. Homebrew and rustup cannot coexist for the same binaries without `$PATH` conflicts.
 
 ---
 

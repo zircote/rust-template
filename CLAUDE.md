@@ -306,6 +306,8 @@ All public items require doc comments. Structure:
 | Parameterized tests | anywhere, via `#[test_case]` | `test-case` |
 | Doc tests | `///` examples on public items | — |
 
+**Code coverage requirement**: 90% minimum across all metrics (line, function, branch). Run `just coverage` to generate an LCOV report and verify. CI enforces this threshold via Codecov.
+
 **Property test pattern** (proptest):
 
 ```rust

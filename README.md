@@ -89,12 +89,16 @@ fn main() -> Result<(), rust_template::Error> {
 
 ### Prerequisites
 
-- Rust 1.92+ (2024 edition)
+- Rust 1.92+ (2024 edition) — install via [rustup](https://rustup.rs/), **not** Homebrew
 - [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) for supply chain security
 
 ### Setup
 
 ```bash
+# Install Rust via rustup (not Homebrew)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+
 # Clone the repository
 git clone https://github.com/zircote/rust-template.git
 cd rust-template
