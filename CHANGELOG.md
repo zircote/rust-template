@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add GitHub config, Copilot setup, and CodeQL workflow
 - Add documentation structure and ADR-0002
 - Add justfile for local CI parity
+- **commands**: Add `/spec-orchestrator` slash command for parallel agent team orchestration
+  - Phase-based workflow: bootstrap, discovery, synthesis, execution, verification, cleanup
+  - `jq`-based inventory processing to conserve agent context windows
+  - Just-in-time teammate spawning with staleness prevention and heartbeat monitoring
+  - Anti-takeover rules preventing the orchestrator from writing code itself
+  - Mnemonic blackboard storage for persistent, project-isolated work directory
+- **commands**: Add `/init-project` toolchain verification (Phase 1.5) requiring rustup over Homebrew
+- Add `template-sync` recipe to justfile for syncing shared tooling from upstream
 
 ### Build
 
@@ -31,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rewrite Copilot Jumpstart prompts for 500-char limit
 - Update project docs, rustfmt config, and tests
 - Add commit signing guidance for contributors
+- Add rustup toolchain setup guidance to GETTING-STARTED.md, README.md, and CONTRIBUTING.md (not Homebrew)
+- Add 90% code coverage requirement across all metrics to CLAUDE.md
 
 ### Fixed
 
