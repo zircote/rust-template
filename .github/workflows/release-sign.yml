@@ -27,7 +27,7 @@ jobs:
       - name: Install Cosign
         # v3.7.0
         uses: >-
-          sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da
+          sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad
 
       - name: Download release assets
         env:
