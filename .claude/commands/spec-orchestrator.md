@@ -39,28 +39,31 @@ Set `AUTO_MODE=true` if `--auto` is present, `false` otherwise.
 
 ### Work Directory
 
-All orchestration artifacts are stored in the **mnemonic blackboard** under a project-specific path. This avoids collisions when running concurrent orchestrations across multiple projects and persists data across sessions for audit and resumption.
+All orchestration artifacts are stored in the **Atlatl blackboard** under a project-specific path. This avoids collisions when running concurrent orchestrations across multiple projects and persists data across sessions for audit and resumption.
+
+Use the Atlatl MCP blackboard tools to manage orchestration state:
 
 ```bash
-# Derive the mnemonic blackboard path for this project
-# MNEMONIC_ROOT is typically ~/.local/share/mnemonic
-# The org/project path mirrors the git remote (e.g., zircote/atlatl)
-MNEMONIC_ROOT="${MNEMONIC_ROOT:-$HOME/.local/share/mnemonic}"
+# Derive the blackboard key prefix for this project
 GIT_REMOTE_PATH=$(git remote get-url origin 2>/dev/null | sed 's|.*github.com[:/]||; s|\.git$||')
-WORK_DIR="${MNEMONIC_ROOT}/${GIT_REMOTE_PATH}/.blackboard/orchestrator"
-mkdir -p "${WORK_DIR}/discovery"
+BLACKBOARD_PREFIX="orchestrator/${GIT_REMOTE_PATH}"
 ```
 
-Example paths per project:
-- `atlatl` → `~/.local/share/mnemonic/zircote/atlatl/.blackboard/orchestrator/`
-- `nsip` → `~/.local/share/mnemonic/zircote/nsip/.blackboard/orchestrator/`
+Store and retrieve artifacts via Atlatl blackboard tools:
+- `blackboard_create` / `blackboard_write` — persist discovery results, task manifests, decisions
+- `blackboard_read` — retrieve artifacts for resumption
+- `blackboard_list_keys` — enumerate stored artifacts
 
-All paths in this command reference `${WORK_DIR}` — e.g., `${WORK_DIR}/discovery/`, `${WORK_DIR}/task-manifest.md`, `${WORK_DIR}/orchestrator-decisions.md`, `${WORK_DIR}/audit-report.md`.
+Example blackboard keys per project:
+- `orchestrator/zircote/atlatl/discovery`
+- `orchestrator/zircote/nsip/task-manifest`
+
+All paths in this command reference `${BLACKBOARD_PREFIX}` — e.g., `${BLACKBOARD_PREFIX}/discovery`, `${BLACKBOARD_PREFIX}/task-manifest`, `${BLACKBOARD_PREFIX}/orchestrator-decisions`, `${BLACKBOARD_PREFIX}/audit-report`.
 
 **Benefits over `/tmp`**:
 - No collisions between concurrent runs across projects
 - Artifacts survive reboots — useful for resuming failed orchestrations
-- Discoverable via mnemonic tooling (`rg` across `~/.local/share/mnemonic/`)
+- Discoverable via Atlatl tooling (`blackboard_list_keys`, `recall_memories`)
 - Phase 5 cleanup can optionally preserve artifacts for post-mortem analysis
 
 ---
