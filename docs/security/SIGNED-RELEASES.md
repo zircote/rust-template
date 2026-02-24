@@ -5,8 +5,8 @@
 Cryptographically sign release artifacts and generate SLSA provenance for supply chain security.
 
 **Workflows:**
-- `.github/workflows/signed-releases.yml` - Cosign signatures
-- `.github/workflows/slsa-provenance.yml` - SLSA Level 3 provenance
+- `.github/workflows/release-sign.yml` - Cosign signatures and checksums
+- `.github/workflows/pipeline.yml` - SLSA Level 3 provenance (via `slsa-build`/`slsa-provenance` jobs)
 
 ## Why Sign Releases?
 
