@@ -25,26 +25,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        # yamllint disable-line rule:line-length
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: Initialize CodeQL
         # yamllint disable-line rule:line-length
         uses: github/codeql-action/init@9e907b5e64f6b83e7804b09294d44122997950d6  # v4.32.3
         with:
-          languages: cpp
-          # CodeQL uses the cpp extractor for Rust analysis
-
-      - name: Install Rust toolchain
-        # yamllint disable-line rule:line-length
-        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9  # master
-        with:
-          toolchain: stable
-
-      - name: Build for analysis
-        run: cargo build --all-features
+          languages: rust
+          build-mode: none
 
       - name: Perform CodeQL analysis
         # yamllint disable-line rule:line-length
         uses: github/codeql-action/analyze@9e907b5e64f6b83e7804b09294d44122997950d6  # v4.32.3
         with:
-          category: "/language:cpp"
+          category: "/language:rust"
