@@ -91,7 +91,7 @@ rustc --version   # should print 1.92.0 or newer
 
 ## 4. Explore the Structure
 
-```
+```text
 .
 ├── crates/
 │   ├── lib.rs              # Library entry point and public API

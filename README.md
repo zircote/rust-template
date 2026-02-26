@@ -2,7 +2,7 @@
 
 <!-- Badges -->
 [![GitHub Template](https://img.shields.io/badge/template-zircote%2Frust--template-blue?logo=github)](https://github.com/zircote/rust-template)
-[![CI](https://github.com/zircote/rust-template/actions/workflows/ci.yml/badge.svg)](https://github.com/zircote/rust-template/actions/workflows/ci.yml)
+[![CI](https://github.com/zircote/rust-template/actions/workflows/pipeline.yml/badge.svg)](https://github.com/zircote/rust-template/actions/workflows/pipeline.yml)
 [![Crates.io](https://img.shields.io/crates/v/rust_template.svg?logo=rust&logoColor=white)](https://crates.io/crates/rust_template)
 [![Documentation](https://docs.rs/rust_template/badge.svg)](https://docs.rs/rust_template)
 [![Rust Version](https://img.shields.io/badge/rust-1.92%2B-dea584?logo=rust&logoColor=white)](https://www.rust-lang.org/)
@@ -175,7 +175,7 @@ This template includes production-ready workflows:
 
 ### Continuous Integration
 
-- **CI** (`.github/workflows/ci.yml`) - Format, lint, test, docs, supply chain security, MSRV check, coverage
+- **CI** (`.github/workflows/pipeline.yml`) - Format, lint, test, docs, supply chain security, MSRV check, coverage
 - **Security Audit** (`.github/workflows/security-audit.yml`) - Daily cargo-audit scans
 - **`CodeQL` Analysis** (`.github/workflows/codeql-analysis.yml`) - SAST scanning on push/PR and weekly schedule
 - **Benchmark** (`.github/workflows/benchmark.yml`) - Performance tracking with criterion
@@ -183,23 +183,19 @@ This template includes production-ready workflows:
 
 ### Release and Deployment
 
-- **Release** (`.github/workflows/release.yml`) - Automated GitHub releases with multi-platform binaries
+- **Release** (`.github/workflows/release-create.yml`) - Automated GitHub releases with multi-platform binaries
   - Builds for: Linux (`x86_64`, ARM64), macOS (`x86_64`, ARM64), Windows (`x86_64`)
-  - Automatic changelog generation
+  - Automatic changelog generation via git-cliff
   - Binary artifacts uploaded to releases
+  - CHANGELOG.md committed back to repository
 
-- **Changelog** (`.github/workflows/changelog.yml`) - Automated CHANGELOG.md generation
-  - Uses git-cliff with conventional commits
-  - Follows Keep a Changelog format
-  - Triggered on version tags
-
-- **Docker** (`.github/workflows/docker.yml`) - Multi-platform container builds
+- **Docker** (`.github/workflows/release-docker.yml`) - Multi-platform container builds
   - Platforms: linux/amd64, linux/arm64
   - Distroless base image for security
   - Published to GitHub Container Registry (ghcr.io)
   - Tagged with version and 'latest'
 
-- **Publish** (`.github/workflows/publish.yml`) - Automated crates.io publishing
+- **Publish** (`.github/workflows/release-publish.yml`) - Automated crates.io publishing
   - Full pre-publish validation
   - Triggered on version tags
   - Requires `CARGO_REGISTRY_TOKEN` secret

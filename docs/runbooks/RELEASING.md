@@ -92,11 +92,11 @@ Pushing a `v*.*.*` tag triggers these workflows in parallel:
 
 | Workflow | File | What it does |
 |---|---|---|
-| **Release** | `release.yml` | Builds binaries for 5 platform targets, generates changelog via git-cliff, creates a GitHub Release with assets |
-| **Changelog** | `changelog.yml` | Regenerates `CHANGELOG.md` and commits it to `main` |
-| **Docker** | `docker.yml` | Builds multi-platform images (linux/amd64, linux/arm64), pushes to `ghcr.io/zircote/rust-template` with version + `latest` tags |
-| **Publish** | `publish.yml` | Runs pre-publish checks and publishes to crates.io (if enabled and tag-triggered) |
-| **Signed Releases** | `signed-releases.yml` | Signs all release assets with Sigstore Cosign, generates SHA256/SHA512 checksums |
+| **Release** | `release-create.yml` | Builds binaries for 5 platform targets, generates changelog via git-cliff, creates a GitHub Release with assets |
+| **Changelog** | `release-create.yml` | Regenerates `CHANGELOG.md` and commits it to `main` |
+| **Docker** | `release-docker.yml` | Builds multi-platform images (linux/amd64, linux/arm64), pushes to `ghcr.io/zircote/rust-template` with version + `latest` tags |
+| **Publish** | `release-publish.yml` | Runs pre-publish checks and publishes to crates.io (if enabled and tag-triggered) |
+| **Signed Releases** | `release-sign.yml` | Signs all release assets with Sigstore Cosign, generates SHA256/SHA512 checksums |
 
 ---
 

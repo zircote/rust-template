@@ -40,7 +40,7 @@ cargo install cargo-mutants
 cargo mutants
 
 # Test specific file
-cargo mutants --file src/lib.rs
+cargo mutants --file crates/lib.rs
 
 # Limit execution time
 cargo mutants --timeout 300
@@ -61,7 +61,7 @@ The workflow runs automatically on PRs when `src/` or `tests/` change. Results p
 
 ### Summary Output
 
-```
+```text
 Total mutants: 50
 Caught: 45
 Missed: 5
@@ -79,9 +79,9 @@ Score: 90%
 
 ### Missed Mutants Report
 
-```
+```text
 Function: calculate_total
-File: src/lib.rs:42
+File: crates/lib.rs:42
 Mutation: Changed + to -
 Status: MISSED
 
@@ -166,7 +166,7 @@ Create `.cargo-mutants.toml`:
 ```toml
 [mutants]
 exclude_files = [
-    "src/generated.rs",
+    "crates/generated.rs",
     "tests/fixtures/*.rs"
 ]
 ```
@@ -182,7 +182,7 @@ cargo mutants --timeout 300  # 5 minutes per mutant
 
 ```bash
 # Test only changed functions
-cargo mutants --file src/lib.rs --re "fn calculate"
+cargo mutants --file crates/lib.rs --re "fn calculate"
 ```
 
 ## Interpreting Low Scores
@@ -208,7 +208,7 @@ cargo mutants --file src/lib.rs --re "fn calculate"
 cargo mutants --jobs 4
 
 # Test changed files only
-cargo mutants --file src/changed_file.rs
+cargo mutants --file crates/changed_file.rs
 ```
 
 ### Timeouts

@@ -58,7 +58,7 @@ All platforms and versions pass. Code is portable and compatible.
 
 ### Partial Failure (⚠️)
 
-```
+```text
 ubuntu-latest / stable: ✅
 macos-latest / stable: ❌
 windows-latest / stable: ✅
@@ -68,7 +68,7 @@ windows-latest / stable: ✅
 
 ### MSRV Failure (❌)
 
-```
+```text
 ubuntu-latest / 1.80: ❌
 ubuntu-latest / stable: ✅
 ```

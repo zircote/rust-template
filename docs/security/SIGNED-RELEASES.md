@@ -164,7 +164,7 @@ slsa-verifier verify-artifact \
 ```
 
 **Output:**
-```
+```text
 ✓ Verified SLSA provenance
   Source: github.com/USER/REPO
   Builder: https://github.com/slsa-framework/slsa-github-generator

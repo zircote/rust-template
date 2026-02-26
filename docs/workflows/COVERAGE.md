@@ -4,7 +4,7 @@
 
 Automated code coverage measurement and tracking using [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov).
 
-**Workflow:** `.github/workflows/coverage.yml`
+**Workflow:** `.github/workflows/ci-coverage.yml`
 **Tool:** cargo-llvm-cov
 **Integration:** Codecov (optional)
 **Triggers:** Push to main, PRs, Weekly schedule
@@ -51,12 +51,12 @@ cargo llvm-cov --json --output-path coverage.json
 
 ### Summary Output
 
-```
+```text
 Filename              Regions  Missed Regions  Coverage
 ---------------------------------------------------------
-src/lib.rs                 45              3     93.33%
-src/parser.rs              78             12     84.62%
-src/utils.rs               23              0    100.00%
+crates/lib.rs              45              3     93.33%
+crates/parser.rs           78             12     84.62%
+crates/utils.rs            23              0    100.00%
 ---------------------------------------------------------
 TOTAL                     146             15     89.73%
 ```

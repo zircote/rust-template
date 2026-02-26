@@ -60,9 +60,9 @@ typos --write-changes
 The workflow runs automatically. Check the Actions tab for results.
 
 **Warning Output:**
-```
+```text
 warning: `recieve` should be `receive`
-  --> src/lib.rs:10
+  --> crates/lib.rs:10
 ```
 
 ## Troubleshooting

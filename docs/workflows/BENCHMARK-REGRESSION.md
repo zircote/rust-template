@@ -21,7 +21,7 @@ Automated performance benchmarking with regression detection using [Criterion.rs
 
 ### Directory Structure
 
-```
+```text
 benches/
 ├── my_benchmark.rs
 └── another_benchmark.rs
@@ -93,7 +93,7 @@ The workflow automatically:
 
 ### Benchmark Output
 
-```
+```text
 expensive_function      time:   [48.123 µs 48.567 µs 49.012 µs]
                         change: [-5.2341% -3.1234% -1.0123%] (p = 0.02 < 0.05)
                         Performance has improved.
@@ -115,14 +115,14 @@ expensive_function      time:   [48.123 µs 48.567 µs 49.012 µs]
 
 ### Statistical Significance
 
-```
+```text
 change: [+2.5% +5.2% +7.8%] (p = 0.45 > 0.05)
 Change within noise threshold.
 ```
 
 **Not significant** - variation likely due to noise, not real change.
 
-```
+```text
 change: [+15.2% +18.5% +21.3%] (p = 0.001 < 0.05)
 Performance has regressed.
 ```
@@ -316,7 +316,7 @@ cargo bench -- --baseline before-refactor
 
 Criterion generates HTML reports:
 
-```
+```text
 target/criterion/
 ├── expensive_function/
 │   ├── report/
@@ -345,7 +345,7 @@ c.bench_function("process_bytes", |b| {
 
 ### Noisy Results
 
-```
+```text
 change: [-15% +2% +18%] (p = 0.52)
 Change within noise threshold.
 ```
@@ -366,7 +366,7 @@ sudo cpupower frequency-set --governor performance
 
 ### Missing Baseline
 
-```
+```text
 Warning: No baseline found for benchmark
 ```
 

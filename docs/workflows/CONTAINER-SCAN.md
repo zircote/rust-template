@@ -84,7 +84,7 @@ Skip vulnerabilities without fixes:
 
 Create `.trivyignore`:
 
-```
+```text
 # Ignore specific CVEs
 CVE-2021-12345
 
@@ -119,7 +119,7 @@ pkg:deb/debian/openssl@1.1.1
 
 ### Table Output
 
-```
+```text
 Library      Vulnerability  Severity  Status  Installed  Fixed
 -------      -------------  --------  ------  ---------  -----
 openssl      CVE-2021-12345 CRITICAL  fixed   1.1.1k     1.1.1l
@@ -153,7 +153,7 @@ trivy image rust-template:patched
 
 For false positives or accepted risks:
 
-```
+```text
 # .trivyignore
 CVE-2021-12345  # Mitigated by network isolation
 ```

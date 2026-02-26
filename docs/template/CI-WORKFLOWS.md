@@ -12,7 +12,7 @@ All CI and release work is orchestrated through a single `pipeline.yml`
 that calls reusable workflows via `workflow_call`. This ensures CI passes
 before any release work begins and eliminates duplicate checks.
 
-```
+```text
                        push/PR/tag
                             |
                   +---------+---------+
@@ -68,7 +68,7 @@ before any release work begins and eliminates duplicate checks.
 | Contributor Recognition | `contributors.yml` | manual | -- | Opt-in |
 | Template Init | `template-init.yml` | push to main, manual | -- | Active |
 | Nightly Builds | `nightly.yml` | manual | -- | Opt-in |
-| Deploy Documentation | `docs-deploy.yml` | manual | -- | Opt-in |
+| Deploy Documentation | `docs-deploy.yml` | push to main (docs/site/CLAUDE.md/Cargo.toml paths), manual | -- | Active |
 | ADR Validation | `adr-validation.yml` | push, PR (docs/adr paths), manual | -- | Active |
 | ADR Viewer | `adr-viewer.yml` | push (docs/adr paths), manual | -- | Active |
 | Docker Hub Multi-Registry | `docker-hub.yml` | manual | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` | Opt-in |

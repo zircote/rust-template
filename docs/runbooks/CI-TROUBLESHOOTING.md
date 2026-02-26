@@ -41,7 +41,7 @@ gh run rerun <run-id>
 Most CI failures can be reproduced locally with the same commands CI uses:
 
 ```bash
-# Run the full CI check suite (matches ci.yml)
+# Run the full CI check suite (matches ci-checks.yml)
 cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-features --verbose
@@ -57,7 +57,7 @@ cargo +1.92 check --all-features
 
 ## Clippy Failures
 
-**Workflow:** `ci.yml` (clippy job)
+**Workflow:** `ci-checks.yml` (clippy job)
 **Command:** `cargo clippy --all-targets --all-features -- -D warnings`
 
 ### Common Patterns
@@ -86,7 +86,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo clippy --fix --all-targets --all-features
 
 # Check a specific file
-cargo clippy --all-features -- -D warnings 2>&1 | grep "src/myfile.rs"
+cargo clippy --all-features -- -D warnings 2>&1 | grep "crates/myfile.rs"
 ```
 
 ### When to Allow a Lint
@@ -106,7 +106,7 @@ Never add blanket allows in `lib.rs` or `Cargo.toml` to silence clippy globally.
 
 ## Format Failures
 
-**Workflow:** `ci.yml` (fmt job)
+**Workflow:** `ci-checks.yml` (fmt job)
 **Command:** `cargo fmt --all -- --check`
 
 ### Fix
@@ -119,7 +119,7 @@ cargo fmt --all
 cargo fmt --all -- --check
 
 # Format a specific file
-rustfmt src/lib.rs
+rustfmt crates/lib.rs
 ```
 
 ### Editor Integration
@@ -157,7 +157,7 @@ If `cargo fmt` produces unexpected results, check that your local Rust toolchain
 
 ## MSRV Failures
 
-**Workflow:** `ci.yml` (msrv job)
+**Workflow:** `ci-checks.yml` (msrv job)
 **Command:** `cargo +1.92 check --all-features`
 **MSRV:** Rust 1.92
 
@@ -189,19 +189,19 @@ rustup doc --std
    [dependencies]
    some-crate = ">=1.0, <1.5"  # 1.5 requires Rust 1.93+
    ```
-3. **If MSRV needs to be bumped:** Update `rust-version` in `Cargo.toml`, update the MSRV check in `ci.yml`, and note it in the changelog as a potentially breaking change
+3. **If MSRV needs to be bumped:** Update `rust-version` in `Cargo.toml`, update the MSRV check in `ci-checks.yml`, and note it in the changelog as a potentially breaking change
 
 ---
 
 ## cargo-deny Failures
 
-**Workflow:** `ci.yml` (deny job)
+**Workflow:** `ci-checks.yml` (deny job)
 **Command:** `cargo deny check`
 **Configuration:** `deny.toml`
 
 ### Advisory Failures
 
-```
+```text
 error[vulnerability]: RUSTSEC-2024-XXXX: <crate> - <description>
 ```
 
@@ -221,7 +221,7 @@ ignore = [
 
 ### License Failures
 
-```
+```text
 error[rejected]: license 'GPL-3.0' is not in the allow list
 ```
 
@@ -238,7 +238,7 @@ error[rejected]: license 'GPL-3.0' is not in the allow list
 
 ### Ban Failures
 
-```
+```text
 error[banned]: crate 'openssl' is banned
 ```
 
@@ -253,7 +253,7 @@ Then either:
 
 ### Source Failures
 
-```
+```text
 error[unknown-registry]: crate 'foo' sourced from unknown registry
 ```
 
@@ -276,7 +276,7 @@ cargo deny check sources
 
 ## Test Failures
 
-**Workflow:** `ci.yml` (test job, runs on ubuntu, macos, windows)
+**Workflow:** `ci-checks.yml` (test job, runs on ubuntu, macos, windows)
 **Command:** `cargo test --all-features --verbose`
 
 ### Debugging Tips
@@ -488,7 +488,7 @@ Comment these on any Dependabot PR:
 
 ## Documentation Failures
 
-**Workflow:** `ci.yml` (doc job)
+**Workflow:** `ci-checks.yml` (doc job)
 **Command:** `cargo doc --no-deps --all-features`
 **Environment:** `RUSTDOCFLAGS="-D warnings"`
 
@@ -518,7 +518,7 @@ cargo test --doc
 
 ## Coverage Failures
 
-**Workflow:** `ci.yml` (coverage job) -- this job does not block merging (`fail_ci_if_error: false` on Codecov upload)
+**Workflow:** `pipeline.yml` (coverage job) -- this job does not block merging (`fail_ci_if_error: false` on Codecov upload)
 
 If coverage generation fails:
 

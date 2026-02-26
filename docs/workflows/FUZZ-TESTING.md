@@ -114,7 +114,7 @@ The workflow runs automatically:
 
 ### Successful Run (No Crashes)
 
-```
+```text
 #0  READ units: 1234
 #1  pulse  cov: 234 ft: 456 corp: 10/1234b
 ...
@@ -128,7 +128,7 @@ Done 10000 runs in 300 seconds
 
 ### Crash Detected
 
-```
+```text
 ==1234==ERROR: AddressSanitizer: heap-buffer-overflow
 READ of size 1 at 0x...
 ```
@@ -232,7 +232,7 @@ echo "🦀" > fuzz/corpus/parse_input/unicode
 
 Fuzzer automatically saves interesting inputs:
 
-```
+```text
 fuzz/corpus/parse_input/
 ├── 0a1b2c3d4e5f...  # Auto-generated interesting cases
 ├── 1b2c3d4e5f6a...
@@ -259,7 +259,7 @@ cargo fuzz run target -- -rss_limit_mb=2048
 
 Create `fuzz/dict/target.dict` for domain-specific keywords:
 
-```
+```text
 "keyword1"
 "keyword2"
 "special_token"

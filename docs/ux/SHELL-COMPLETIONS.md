@@ -16,7 +16,7 @@ clap_complete = "4.5"
 
 ### Implement Completions
 
-**src/cli.rs:**
+**crates/cli.rs:**
 
 ```rust
 use clap::{Parser, CommandFactory};
@@ -49,7 +49,7 @@ impl Cli {
 }
 ```
 
-**src/main.rs:**
+**crates/main.rs:**
 
 ```rust
 use clap::Parser;
@@ -207,7 +207,7 @@ use clap_complete::{generate_to, Shell};
 use std::env;
 use std::path::PathBuf;
 
-include!("src/cli.rs");
+include!("crates/cli.rs");
 
 fn main() {
     let outdir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
@@ -217,7 +217,7 @@ fn main() {
         generate_to(shell, &mut cmd, "rust-template", &outdir).unwrap();
     }
 
-    println!("cargo:rerun-if-changed=src/cli.rs");
+    println!("cargo:rerun-if-changed=crates/cli.rs");
 }
 ```
 

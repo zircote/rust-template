@@ -264,7 +264,7 @@ This project runs multiple layers of automated security scanning:
 
 ### What Each Tool Catches
 
-```
+```text
 Supply Chain Attack ──> cargo-deny (sources), Dependabot, secret scanning
 Known Vulnerability ──> cargo-audit (daily), cargo-deny (advisories), Dependabot alerts
 License Violation   ──> cargo-deny (licenses)

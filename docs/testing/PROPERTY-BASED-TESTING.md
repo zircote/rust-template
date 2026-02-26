@@ -120,7 +120,7 @@ proptest! {
 ```
 
 **Output:**
-```
+```text
 Test failed for input: n = 1000
 (shrunk from initial failure: n = 4294967295)
 ```
