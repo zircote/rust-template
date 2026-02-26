@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **docs-site**: Add Astro Starlight documentation site at `site/`
+  - 73 browsable, searchable pages deployed to GitHub Pages
+  - Auto-generated content from `docs/` markdown, `.github/workflows/*.yml`, and `CLAUDE.md` reference sections
+  - Embedded rustdoc API reference at `/api/`
+  - Pagefind full-text search, Mermaid diagram support, OG/Twitter social meta
+  - Content generation scripts with freshness checking (`npm run check:freshness`)
+  - Splash landing page with feature cards, 11-section sidebar navigation
+- **workflows**: Add `docs-freshness.md` gh-aw workflow for weekly staleness detection
 - **ci**: Add template-init workflow for automatic repo renaming
 - Add community and governance files
 - Add editor, devcontainer, and VS Code configuration
@@ -23,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mnemonic blackboard storage for persistent, project-isolated work directory
 - **commands**: Add `/init-project` toolchain verification (Phase 1.5) requiring rustup over Homebrew
 - Add `template-sync` recipe to justfile for syncing shared tooling from upstream
+
+### Changed
+
+- **workflows**: Replace rustdoc+mdBook docs-deploy workflow with Astro Starlight site deployment
+  - Builds Node.js site alongside rustdoc, embeds API docs at `/api/`
+  - Triggers on `docs/**`, `site/**`, `CLAUDE.md`, and `Cargo.toml` changes
 
 ### Build
 
