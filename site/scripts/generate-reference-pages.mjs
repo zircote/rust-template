@@ -99,9 +99,9 @@ function extractSection(content, heading) {
     const nextHeading = rest.match(/^#{2,3}\s+/m);
     const body = nextHeading ? rest.slice(0, nextHeading.index) : rest;
 
-    // Strip trailing HR separators and HTML comments (invalid in MDX)
+    // Strip trailing HR separators (with possible blank lines) and HTML comments
     let cleaned = body.trim();
-    cleaned = cleaned.replace(/\n---\s*$/, "").trim();
+    cleaned = cleaned.replace(/(\n\s*)*---\s*$/, "").trim();
     cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, "").trim();
     return cleaned;
 }

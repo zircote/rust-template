@@ -13,6 +13,32 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..");
 const siteRoot = resolve(__dirname, "..");
 
+function buildLinkMap(mappingPages) {
+    const linkMap = {};
+    for (const page of mappingPages) {
+        const filename = page.source.split("/").pop();
+        const url = "/" + page.output.replace(/\.mdx$/, "/");
+        linkMap[filename] = url;
+    }
+    linkMap["CONTRIBUTING.md"] =
+        "https://github.com/zircote/rust-template/blob/main/CONTRIBUTING.md";
+    linkMap["SECURITY.md"] = "https://github.com/zircote/rust-template/blob/main/SECURITY.md";
+    linkMap["README.md"] = "https://github.com/zircote/rust-template/blob/main/README.md";
+    return linkMap;
+}
+
+function rewriteLinks(content, linkMap) {
+    return content.replace(
+        /\]\(([^)]*?([A-Z][A-Z0-9_-]+\.md))(#[^)]*)?\)/gi,
+        (match, fullPath, filename, anchor) => {
+            if (linkMap[filename]) {
+                return `](${linkMap[filename]}${anchor || ""})`;
+            }
+            return match;
+        },
+    );
+}
+
 function stripFrontmatter(content) {
     return content.replace(/^---\n[\s\S]*?\n---\n/, "");
 }
@@ -44,6 +70,7 @@ function buildFrontmatter(page, extractedTitle) {
  */
 export function generateDocsPages(outputBase) {
     const mapping = JSON.parse(readFileSync(join(__dirname, "docs-mapping.json"), "utf-8"));
+    const linkMap = buildLinkMap(mapping.pages);
     const outDir = outputBase || join(siteRoot, mapping.outputDir);
     const generated = [];
     const skipped = [];
@@ -63,6 +90,8 @@ export function generateDocsPages(outputBase) {
 
         // Strip HTML comments which are invalid in MDX
         let body = stripped.replace(/<!--[\s\S]*?-->/g, "");
+        // Rewrite markdown links to Starlight URLs
+        body = rewriteLinks(body, linkMap);
         const h1Match = body.match(/^#\s+.+\n+/);
         if (h1Match) {
             body = body.slice(h1Match[0].length);
