@@ -118,7 +118,7 @@ rustdoc::broken_intra_doc_links = "deny"  # Fail on broken links
 
 ### Unsafe Code Report
 
-```
+```text
 Functions  Expressions  Impls  Traits  Methods  Dependency
 2/10       5/100        0/5    0/2     0/20     ✓ rust_template
 ```
@@ -131,7 +131,7 @@ Functions  Expressions  Impls  Traits  Methods  Dependency
 
 ### Binary Size Report
 
-```
+```text
 File   .text   Size    Crate
 71.0%  59.0%   1.2MiB  std        ← Standard library
  8.5%   7.1%   147KiB  rust_template
@@ -142,9 +142,9 @@ File   .text   Size    Crate
 
 ### Documentation Coverage
 
-```
+```text
 warning: missing documentation for public function `add`
-  --> src/lib.rs:10
+  --> crates/lib.rs:10
 ```
 
 **Action:** Add doc comments:

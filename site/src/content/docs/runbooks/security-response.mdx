@@ -3,7 +3,7 @@ title: "Security Response"
 description: "Security incident response procedures."
 ---
 
-Runbook for handling security vulnerabilities in rust-template. Based on the project's [Security Policy](../../SECURITY.md).
+Runbook for handling security vulnerabilities in rust-template. Based on the project's [Security Policy](https://github.com/zircote/rust-template/blob/main/SECURITY.md).
 
 ---
 
@@ -267,7 +267,7 @@ This project runs multiple layers of automated security scanning:
 
 ### What Each Tool Catches
 
-```
+```text
 Supply Chain Attack ──> cargo-deny (sources), Dependabot, secret scanning
 Known Vulnerability ──> cargo-audit (daily), cargo-deny (advisories), Dependabot alerts
 License Violation   ──> cargo-deny (licenses)

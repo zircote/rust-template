@@ -15,7 +15,7 @@ description: "How to get started with the rust-template."
 - [ ] Select **Public** or **Private** visibility.
 - [ ] Click **"Create repository"**.
 
-> **Optional:** During creation, GitHub offers a **"Jumpstart your project with Copilot"** field. You can paste a prompt there to have Copilot scaffold your project with real types, functions, and tests in an auto-opened PR. See [Copilot Jumpstart](COPILOT-JUMPSTART.md) for ready-made prompts.
+> **Optional:** During creation, GitHub offers a **"Jumpstart your project with Copilot"** field. You can paste a prompt there to have Copilot scaffold your project with real types, functions, and tests in an auto-opened PR. See [Copilot Jumpstart](/getting-started/copilot-jumpstart/) for ready-made prompts.
 
 ---
 
@@ -37,7 +37,7 @@ Once your repository is created and the first push lands on `main`, the **Templa
 - [ ] After the commit, `Cargo.toml`, `README.md`, documentation links, and all other references point to your project.
 - [ ] The workflow becomes a **no-op** on subsequent pushes (it checks whether `Cargo.toml` still contains `rust_template`).
 
-> **What copies and what doesn't?** Files copy; settings don't. See [GitHub Template Features](GITHUB-TEMPLATE-FEATURES.md) for the full breakdown of what transfers when you use a template repository.
+> **What copies and what doesn't?** Files copy; settings don't. See [GitHub Template Features](/getting-started/github-template-features/) for the full breakdown of what transfers when you use a template repository.
 
 ---
 
@@ -94,7 +94,7 @@ rustc --version   # should print 1.92.0 or newer
 
 ## 4. Explore the Structure
 
-```
+```text
 .
 ├── crates/
 │   ├── lib.rs              # Library entry point and public API
@@ -145,7 +145,7 @@ Open the **Actions** tab in your GitHub repository to watch the pipeline. The co
 
 All checks (except coverage) must pass for the **"All Checks Pass"** gate to go green.
 
-> For details on every workflow included in this template, see [CI Workflows](CI-WORKFLOWS.md).
+> For details on every workflow included in this template, see [CI Workflows](/workflows/ci-workflows/).
 
 ---
 
@@ -175,7 +175,7 @@ Checklist:
 - [ ] Update `keywords` (up to 5) and `categories` for crates.io discoverability.
 - [ ] Update `README.md` with your project's purpose, usage examples, and badges.
 
-> For a comprehensive configuration walkthrough, see [Configuration](CONFIGURATION.md).
+> For a comprehensive configuration walkthrough, see [Configuration](/getting-started/configuration/).
 
 ---
 
@@ -211,7 +211,7 @@ signature.
 **Contributor setup:**
 
 - [ ] Point contributors to the
-  [Commit Signing](../../CONTRIBUTING.md#commit-signing) section for
+  [Commit Signing](https://github.com/zircote/rust-template/blob/main/CONTRIBUTING.md#commit-signing) section for
   SSH key or gitsign configuration.
 
 **Enable vigilant mode (recommended for maintainers):**
@@ -226,7 +226,7 @@ signature.
 
 You have a building, tested, CI-validated Rust project. Here is where to go from here:
 
-- **[Configuration](CONFIGURATION.md)** -- Full guide to `Cargo.toml`, feature flags, profiles, and lints.
-- **[CI Workflows](CI-WORKFLOWS.md)** -- Deep dive into every workflow: triggers, secrets, and customization.
-- **[Customization](CUSTOMIZATION.md)** -- How to add modules, remove the binary target, enable async, and tailor the template to your needs.
-- **[CONTRIBUTING.md](../../CONTRIBUTING.md)** -- Contribution guidelines for your collaborators.
+- **[Configuration](/getting-started/configuration/)** -- Full guide to `Cargo.toml`, feature flags, profiles, and lints.
+- **[CI Workflows](/workflows/ci-workflows/)** -- Deep dive into every workflow: triggers, secrets, and customization.
+- **[Customization](/getting-started/customization/)** -- How to add modules, remove the binary target, enable async, and tailor the template to your needs.
+- **[CONTRIBUTING.md](https://github.com/zircote/rust-template/blob/main/CONTRIBUTING.md)** -- Contribution guidelines for your collaborators.
