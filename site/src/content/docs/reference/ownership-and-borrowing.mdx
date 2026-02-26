@@ -1,0 +1,10 @@
+---
+title: "Ownership and Borrowing"
+description: "Guidelines for ownership, borrowing, and parameter types."
+---
+
+- Prefer `&str` over `String` in function parameters.
+- Prefer `&[T]` over `Vec<T>` in function parameters.
+- Use `Cow<'_, str>` when a function may or may not allocate.
+- Pass large structs by reference; pass `Copy` types by value.
+- Avoid unnecessary `.clone()` — if you need ownership, take owned types in the signature.

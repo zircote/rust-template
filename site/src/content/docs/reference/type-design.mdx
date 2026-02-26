@@ -1,0 +1,9 @@
+---
+title: "Type Design"
+description: "Newtype patterns, derive macros, and enum vs trait guidance."
+---
+
+- Use newtypes to enforce domain invariants (e.g., `struct Port(u16)` over bare `u16`).
+- Derive `Debug` on all types. Derive `Clone`, `PartialEq`, `Eq`, `Hash` when semantically correct.
+- Use `#[non_exhaustive]` on public enums and structs that may grow.
+- Prefer `enum` for closed sets, `trait` for open extension.

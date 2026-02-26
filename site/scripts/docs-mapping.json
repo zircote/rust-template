@@ -1,0 +1,215 @@
+{
+  "outputDir": "src/content/docs",
+  "pages": [
+    {
+      "source": "docs/template/GETTING-STARTED.md",
+      "output": "getting-started/getting-started.mdx",
+      "title": "Getting Started",
+      "description": "How to get started with the rust-template.",
+      "sidebarLabel": "Getting Started"
+    },
+    {
+      "source": "docs/template/CONFIGURATION.md",
+      "output": "getting-started/configuration.mdx",
+      "title": "Configuration",
+      "description": "Configuration options and settings for the rust-template.",
+      "sidebarLabel": "Configuration"
+    },
+    {
+      "source": "docs/template/CUSTOMIZATION.md",
+      "output": "getting-started/customization.mdx",
+      "title": "Customization",
+      "description": "How to customize the rust-template for your project.",
+      "sidebarLabel": "Customization"
+    },
+    {
+      "source": "docs/template/GITHUB-TEMPLATE-FEATURES.md",
+      "output": "getting-started/github-template-features.mdx",
+      "title": "GitHub Template Features",
+      "description": "GitHub-specific features included in the template.",
+      "sidebarLabel": "GitHub Template Features"
+    },
+    {
+      "source": "docs/template/COPILOT-JUMPSTART.md",
+      "output": "getting-started/copilot-jumpstart.mdx",
+      "title": "Copilot Jumpstart",
+      "description": "Using GitHub Copilot with the rust-template.",
+      "sidebarLabel": "Copilot Jumpstart"
+    },
+    {
+      "source": "docs/template/CI-WORKFLOWS.md",
+      "output": "workflows/ci-workflows.mdx",
+      "title": "CI Workflows",
+      "description": "Continuous integration workflow architecture and configuration.",
+      "sidebarLabel": "CI Workflows"
+    },
+    {
+      "source": "docs/workflows/TEST-MATRIX.md",
+      "output": "testing/test-matrix.mdx",
+      "title": "Test Matrix",
+      "description": "Multi-platform test matrix configuration.",
+      "sidebarLabel": "Test Matrix"
+    },
+    {
+      "source": "docs/workflows/COVERAGE.md",
+      "output": "testing/coverage.mdx",
+      "title": "Code Coverage",
+      "description": "Code coverage configuration and thresholds.",
+      "sidebarLabel": "Code Coverage"
+    },
+    {
+      "source": "docs/workflows/MUTATION-TESTING.md",
+      "output": "testing/mutation-testing.mdx",
+      "title": "Mutation Testing",
+      "description": "Mutation testing with cargo-mutants.",
+      "sidebarLabel": "Mutation Testing"
+    },
+    {
+      "source": "docs/workflows/FUZZ-TESTING.md",
+      "output": "testing/fuzz-testing.mdx",
+      "title": "Fuzz Testing",
+      "description": "Fuzz testing with cargo-fuzz.",
+      "sidebarLabel": "Fuzz Testing"
+    },
+    {
+      "source": "docs/workflows/BENCHMARK-REGRESSION.md",
+      "output": "observability/benchmark-regression.mdx",
+      "title": "Benchmark Regression",
+      "description": "Benchmark regression detection and reporting.",
+      "sidebarLabel": "Benchmark Regression"
+    },
+    {
+      "source": "docs/workflows/CODE-QUALITY.md",
+      "output": "workflows/code-quality.mdx",
+      "title": "Code Quality",
+      "description": "Code quality checks and linting workflows.",
+      "sidebarLabel": "Code Quality"
+    },
+    {
+      "source": "docs/workflows/SPELL-CHECK.md",
+      "output": "workflows/spell-check.mdx",
+      "title": "Spell Check",
+      "description": "Spell checking configuration for documentation and code.",
+      "sidebarLabel": "Spell Check"
+    },
+    {
+      "source": "docs/workflows/CONTAINER-SCAN.md",
+      "output": "security/container-scan.mdx",
+      "title": "Container Scanning",
+      "description": "Container image vulnerability scanning.",
+      "sidebarLabel": "Container Scanning"
+    },
+    {
+      "source": "docs/workflows/SECRETS-SCAN.md",
+      "output": "security/secrets-scan.mdx",
+      "title": "Secrets Scanning",
+      "description": "Secret detection and prevention in source code.",
+      "sidebarLabel": "Secrets Scanning"
+    },
+    {
+      "source": "docs/workflows/SBOM.md",
+      "output": "security/sbom.mdx",
+      "title": "SBOM",
+      "description": "Software Bill of Materials generation.",
+      "sidebarLabel": "SBOM"
+    },
+    {
+      "source": "docs/security/SIGNED-RELEASES.md",
+      "output": "security/signed-releases.mdx",
+      "title": "Signed Releases",
+      "description": "Release signing with Cosign and SLSA provenance.",
+      "sidebarLabel": "Signed Releases"
+    },
+    {
+      "source": "docs/testing/PROPERTY-BASED-TESTING.md",
+      "output": "testing/property-based-testing.mdx",
+      "title": "Property-Based Testing",
+      "description": "Property-based testing with proptest.",
+      "sidebarLabel": "Property-Based Testing"
+    },
+    {
+      "source": "docs/distribution/PACKAGE-MANAGERS.md",
+      "output": "distribution/package-managers.mdx",
+      "title": "Package Managers",
+      "description": "Distribution through Homebrew, Snap, MSI, deb, and rpm.",
+      "sidebarLabel": "Package Managers"
+    },
+    {
+      "source": "docs/distribution/DOCKER-REGISTRIES.md",
+      "output": "distribution/docker-registries.mdx",
+      "title": "Docker Registries",
+      "description": "Multi-platform Docker image publishing.",
+      "sidebarLabel": "Docker Registries"
+    },
+    {
+      "source": "docs/distribution/ALTERNATIVE-REGISTRIES.md",
+      "output": "distribution/alternative-registries.mdx",
+      "title": "Alternative Registries",
+      "description": "Publishing to alternative package registries.",
+      "sidebarLabel": "Alternative Registries"
+    },
+    {
+      "source": "docs/observability/METRICS-DASHBOARD.md",
+      "output": "observability/metrics-dashboard.mdx",
+      "title": "Metrics Dashboard",
+      "description": "Repository metrics and dashboard configuration.",
+      "sidebarLabel": "Metrics Dashboard"
+    },
+    {
+      "source": "docs/ux/SHELL-COMPLETIONS.md",
+      "output": "ux/shell-completions.mdx",
+      "title": "Shell Completions",
+      "description": "Generating shell completions for bash, zsh, fish, and PowerShell.",
+      "sidebarLabel": "Shell Completions"
+    },
+    {
+      "source": "docs/ux/MAN-PAGES.md",
+      "output": "ux/man-pages.mdx",
+      "title": "Man Pages",
+      "description": "Generating and installing man pages.",
+      "sidebarLabel": "Man Pages"
+    },
+    {
+      "source": "docs/runbooks/RELEASING.md",
+      "output": "runbooks/releasing.mdx",
+      "title": "Releasing",
+      "description": "Step-by-step release process.",
+      "sidebarLabel": "Releasing"
+    },
+    {
+      "source": "docs/runbooks/DEPENDENCY-UPDATES.md",
+      "output": "runbooks/dependency-updates.mdx",
+      "title": "Dependency Updates",
+      "description": "Managing dependency updates with Dependabot.",
+      "sidebarLabel": "Dependency Updates"
+    },
+    {
+      "source": "docs/runbooks/SECURITY-RESPONSE.md",
+      "output": "runbooks/security-response.mdx",
+      "title": "Security Response",
+      "description": "Security incident response procedures.",
+      "sidebarLabel": "Security Response"
+    },
+    {
+      "source": "docs/runbooks/CI-TROUBLESHOOTING.md",
+      "output": "runbooks/ci-troubleshooting.mdx",
+      "title": "CI Troubleshooting",
+      "description": "Troubleshooting common CI failures.",
+      "sidebarLabel": "CI Troubleshooting"
+    },
+    {
+      "source": "docs/adr/0001-use-architectural-decision-records.md",
+      "output": "design-decisions/adr-0001.mdx",
+      "title": "ADR-0001: Use Architectural Decision Records",
+      "description": "Decision to adopt ADRs for documenting architectural decisions.",
+      "sidebarLabel": "ADR-0001: Use ADRs"
+    },
+    {
+      "source": "docs/adr/0002-documentation-directory-structure.md",
+      "output": "design-decisions/adr-0002.mdx",
+      "title": "ADR-0002: Documentation Directory Structure",
+      "description": "Decision on documentation directory organization.",
+      "sidebarLabel": "ADR-0002: Doc Structure"
+    }
+  ]
+}

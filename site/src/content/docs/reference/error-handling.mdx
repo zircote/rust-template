@@ -1,0 +1,9 @@
+---
+title: "Error Handling"
+description: "Error type design, Result alias, and propagation conventions."
+---
+
+- **Crate error type**: `Error` enum derived with `thiserror::Error`.
+- **Result alias**: `pub type Result<T> = std::result::Result<T, Error>`.
+- **Propagation**: use `?` operator. Never `unwrap()`, `expect()`, or `panic!()` in library code.
+- **Binary**: `main()` returns `ExitCode`; delegates to `run() -> Result`. Match on `Ok`/`Err` in `main()` and print errors to stderr.

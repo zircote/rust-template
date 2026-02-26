@@ -1,0 +1,12 @@
+---
+title: "Import Ordering"
+description: "Import grouping and ordering conventions."
+---
+
+Group imports in this order, separated by blank lines:
+
+1. `std` / `core` / `alloc`
+2. External crates
+3. `crate` / `super` / `self`
+
+Within each group, alphabetical order (enforced by `reorder_imports = true`).

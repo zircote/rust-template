@@ -1,0 +1,25 @@
+---
+title: "Test Matrix"
+description: "Reference for the Test Matrix GitHub Actions workflow."
+sidebar:
+  badge:
+    text: "CI"
+    variant: "success"
+---
+
+**Source:** [`.github/workflows/ci-test-matrix.yml`](https://github.com/zircote/rust-template/blob/main/.github/workflows/ci-test-matrix.yml)
+
+## Triggers
+
+| Event |
+|---|
+| `workflow_call` |
+| `workflow_dispatch` |
+
+## Jobs
+
+- `test-matrix`
+- `integration-tests`
+- `miri`
+- `test-report`
+

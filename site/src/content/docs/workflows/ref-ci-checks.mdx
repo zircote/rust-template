@@ -1,0 +1,28 @@
+---
+title: "CI Checks"
+description: "Reference for the CI Checks GitHub Actions workflow."
+sidebar:
+  badge:
+    text: "CI"
+    variant: "success"
+---
+
+**Source:** [`.github/workflows/ci-checks.yml`](https://github.com/zircote/rust-template/blob/main/.github/workflows/ci-checks.yml)
+
+## Triggers
+
+| Event |
+|---|
+| `workflow_call` |
+| `workflow_dispatch` |
+
+## Jobs
+
+- `fmt`
+- `clippy`
+- `test`
+- `doc`
+- `deny`
+- `msrv`
+- `all-checks-pass`
+

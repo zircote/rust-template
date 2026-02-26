@@ -1,0 +1,36 @@
+---
+title: "Doc Comments"
+description: "Documentation comment structure and requirements."
+---
+
+All public items require doc comments. Structure:
+
+```rust
+/// Brief one-line summary.
+///
+/// Extended description (optional, for complex items).
+///
+/// # Arguments
+///
+/// * `param` - Description.
+///
+/// # Returns
+///
+/// What this function returns.
+///
+/// # Errors
+///
+/// When and why this function returns an error (required for fallible functions).
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_template::my_function;
+///
+/// let result = my_function(42);
+/// assert_eq!(result, 42);
+/// ```
+```
+
+- Doc examples must compile (`cargo test` runs them as doctests).
+- Use `#![doc = include_str!("../README.md")]` at the crate root to pull in README as crate docs.

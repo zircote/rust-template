@@ -1,0 +1,20 @@
+---
+title: "Formatting"
+description: "rustfmt configuration and formatting rules."
+---
+
+Configured in `rustfmt.toml` (stable options active):
+
+| Setting | Value |
+|---|---|
+| `max_width` | 100 |
+| `edition` | 2024 |
+| `tab_spaces` | 4 |
+| `hard_tabs` | false |
+| `use_field_init_shorthand` | true |
+| `reorder_imports` | true |
+| `reorder_modules` | true |
+| `newline_style` | Unix |
+| `match_block_trailing_comma` | true |
+
+Nightly-only options (`imports_granularity`, `group_imports`, `trailing_comma`, `brace_style`, etc.) are commented out but documented for when nightly is used.

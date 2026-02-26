@@ -1,0 +1,44 @@
+---
+title: "Lint Configuration"
+description: "Clippy lint groups, denied lints, allowed lints, and thresholds."
+---
+
+Clippy runs with **pedantic + nursery + cargo** lint groups. All are set to `warn` with priority -1.
+
+**Denied lints** (hard errors):
+
+| Lint | Reason |
+|---|---|
+| `unwrap_used` | Use `?` or explicit match |
+| `expect_used` | Use `?` or explicit match |
+| `panic` | Return errors instead |
+| `todo` | No placeholder code |
+| `unimplemented` | No placeholder code |
+| `dbg_macro` | No debug prints in production |
+| `print_stdout` | Use logging; binary exempts itself with `#[allow]` |
+| `print_stderr` | Use logging; binary exempts itself with `#[allow]` |
+
+**Allowed lints**:
+
+| Lint | Reason |
+|---|---|
+| `missing_errors_doc` | Opt-in documentation |
+| `missing_panics_doc` | Opt-in documentation |
+| `module_name_repetitions` | Common in Rust API design |
+| `must_use_candidate` | Applied manually where meaningful |
+| `redundant_pub_crate` | Allow `pub(crate)` for clarity |
+
+**Clippy thresholds** (from `clippy.toml`):
+
+| Threshold | Value |
+|---|---|
+| `too-many-lines-threshold` | 100 |
+| `too-many-arguments-threshold` | 7 |
+| `cognitive-complexity-threshold` | 25 |
+| `excessive-nesting-threshold` | 4 |
+| `max-struct-bools` | 3 |
+| `max-fn-params-bools` | 3 |
+| `pass-by-value-size-limit` | 256 bytes |
+| `type-complexity-threshold` | 250 |
+
+**Test exemptions**: `allow-unwrap-in-tests`, `allow-expect-in-tests`, `allow-dbg-in-tests`, `allow-print-in-tests` are all `true`.

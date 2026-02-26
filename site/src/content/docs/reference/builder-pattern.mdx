@@ -1,0 +1,18 @@
+---
+title: "Builder Pattern"
+description: "Consuming-self builder pattern with const fn."
+---
+
+This project uses consuming-self builders with `const fn`:
+
+```rust
+#[must_use]
+pub const fn with_field(mut self, value: T) -> Self {
+    self.field = value;
+    self
+}
+```
+
+- `Config::new()` is `const fn` and `#[must_use]`.
+- `Default` impl delegates to `new()`.
+- Every builder method is `const fn` and `#[must_use]`.

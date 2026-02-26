@@ -1,0 +1,20 @@
+# rust-template Documentation
+
+> A comprehensive GitHub template repository for Rust crates with CI/CD, testing, security, and distribution.
+
+## Sections
+
+- Getting Started: Project setup, configuration, and customization
+- Reference: Lint configuration, cargo profiles, error handling, builder patterns
+- CI/CD & Workflows: Pipeline overview and individual workflow documentation
+- Testing: Property-based testing, mutation testing, fuzz testing, coverage
+- Security: Supply chain, signed releases, secrets scanning, container scanning
+- Distribution: Package managers, Docker registries, alternative registries
+- Observability: Metrics dashboard, benchmark regression
+- UX: Shell completions, man pages
+- Runbooks: Releasing, dependency updates, security response, CI troubleshooting
+- Design Decisions: Architectural decision records
+
+## API Documentation
+
+Rustdoc API reference is available at /api/

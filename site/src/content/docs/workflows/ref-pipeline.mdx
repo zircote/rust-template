@@ -1,0 +1,33 @@
+---
+title: "Pipeline"
+description: "Reference for the Pipeline GitHub Actions workflow."
+sidebar:
+  badge:
+    text: "CI"
+    variant: "success"
+---
+
+**Source:** [`.github/workflows/pipeline.yml`](https://github.com/zircote/rust-template/blob/main/.github/workflows/pipeline.yml)
+
+## Triggers
+
+| Event |
+|---|
+| `push` |
+| `pull_request` |
+| `workflow_dispatch` |
+
+## Jobs
+
+- `ci`
+- `coverage`
+- `test-matrix`
+- `docker`
+- `release`
+- `sign`
+- `publish`
+- `packages`
+- `sbom`
+- `slsa-build`
+- `slsa-provenance`
+

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#dea584" rx="0"/>
+  <text x="640" y="280" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="700" fill="#1a1a2e">rust-template</text>
+  <text x="640" y="360" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="400" fill="#2d2d4e">A comprehensive GitHub template for Rust crates</text>
+  <text x="640" y="420" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="300" fill="#3d3d5e">CI/CD | Testing | Security | Distribution</text>
+</svg>

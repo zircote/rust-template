@@ -1,0 +1,30 @@
+---
+title: "Testing Reference"
+description: "Test types, locations, coverage requirements, and property testing."
+---
+
+| Test type | Location | Crate |
+|---|---|---|
+| Unit tests | `#[cfg(test)] mod tests` inside source files | — |
+| Integration tests | `tests/integration_test.rs` | — |
+| Property tests | `tests/integration_test.rs::property_tests` | `proptest` |
+| Parameterized tests | anywhere, via `#[test_case]` | `test-case` |
+| Doc tests | `///` examples on public items | — |
+
+**Code coverage requirement**: 80% minimum. Run `just coverage` to generate an LCOV report and verify. CI enforces this threshold via Codecov.
+
+**Property test pattern** (proptest):
+
+```rust
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn my_property(input in any::<i32>()) {
+            prop_assert!(some_invariant(input));
+        }
+    }
+}
+```

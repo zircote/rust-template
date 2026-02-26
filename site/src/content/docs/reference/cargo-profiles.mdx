@@ -1,0 +1,12 @@
+---
+title: "Cargo Profiles"
+description: "Build profiles for dev, release, and release-debug configurations."
+---
+
+| Profile | Optimization | LTO | Codegen Units | Panic | Strip | Debug |
+|---|---|---|---|---|---|---|
+| `dev` | 0 | off | default | unwind | no | 1 (line tables) |
+| `release` | 3 | thin | 1 | abort | yes | no |
+| `release-debug` | 3 | thin | 1 | abort | no | full |
+
+---
