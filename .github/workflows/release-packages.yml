@@ -207,7 +207,7 @@ jobs:
       - name: Install cargo-deb
         # v2.67.25
         uses: >-
-          taiki-e/install-action@a37010ded18ff788be4440302bd6830b1ae50d8b
+          taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3
         with:
           tool: cargo-deb@2.7.0
 
@@ -254,7 +254,7 @@ jobs:
       - name: Install cargo-generate-rpm
         # v2.67.25
         uses: >-
-          taiki-e/install-action@a37010ded18ff788be4440302bd6830b1ae50d8b
+          taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3
         with:
           tool: cargo-generate-rpm@0.15.1
 
