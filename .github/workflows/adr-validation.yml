@@ -26,14 +26,14 @@ jobs:
 
       - name: Validate ADR Format
         # main
-        uses: zircote/adrscope@f5b56af9f5ebe72a480770ff9389fcc46345cb66
+        uses: zircote/adrscope@15b8b2658badb6ee22bc1cac797dcb503dd0c2a5
         with:
           command: validate
           adr-path: docs/adr
 
       - name: Get ADR Statistics
         # main
-        uses: zircote/adrscope@f5b56af9f5ebe72a480770ff9389fcc46345cb66
+        uses: zircote/adrscope@15b8b2658badb6ee22bc1cac797dcb503dd0c2a5
         with:
           command: stats
           adr-path: docs/adr

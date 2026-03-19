@@ -52,7 +52,7 @@ jobs:
           key: ${{ runner.os }}-target-mutation-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install cargo-mutants
-        uses: taiki-e/install-action@cfdb446e391c69574ebc316dfb7d7849ec12b940 # v2.68.8
+        uses: taiki-e/install-action@de6bbd1333b8f331563d54a051e542c7dfef81c3 # v2.68.34
         with:
           tool: cargo-mutants@24.11.0
 
