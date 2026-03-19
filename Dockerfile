@@ -39,7 +39,7 @@ USER nonroot:nonroot
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/usr/local/bin/rust_template", "--version"]
+    CMD ["/usr/local/bin/rust_template"]
 
 # Run the binary
 ENTRYPOINT ["/usr/local/bin/rust_template"]

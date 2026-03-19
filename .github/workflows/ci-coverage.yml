@@ -136,12 +136,12 @@ jobs:
         env:
           COVERAGE: ${{ steps.coverage.outputs.percentage }}
         run: |
-          THRESHOLD=80
+          THRESHOLD=90
 
           if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) ))
           then
-            echo "Coverage ${COVERAGE}% is below ${THRESHOLD}%"
-            echo "Consider adding more tests."
+            echo "Coverage ${COVERAGE}% is below ${THRESHOLD}% — failing CI."
+            exit 1
           else
             echo "Coverage ${COVERAGE}% meets ${THRESHOLD}%"
           fi
