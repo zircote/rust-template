@@ -128,8 +128,11 @@ mod property_tests {
 
         #[test]
         fn divide_by_nonzero_succeeds(
-            dividend in any::<i64>(),
-            divisor in any::<i64>().prop_filter("non-zero", |&x| x != 0),
+            (dividend, divisor) in
+                (any::<i64>(), any::<i64>()).prop_filter(
+                    "non-zero divisor and non-overflowing pair",
+                    |(d, v)| *v != 0 && !(*d == i64::MIN && *v == -1),
+                ),
         ) {
             prop_assert!(divide(dividend, divisor).is_ok());
         }

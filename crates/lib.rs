@@ -56,11 +56,12 @@ pub const fn add(a: i64, b: i64) -> i64 {
 ///
 /// # Returns
 ///
-/// The quotient, or an error if `divisor` is zero.
+/// The quotient, or an error if `divisor` is zero or the operation overflows.
 ///
 /// # Errors
 ///
 /// Returns [`Error::InvalidInput`] if `divisor` is zero.
+/// Returns [`Error::OperationFailed`] if the division overflows.
 ///
 /// # Examples
 ///
@@ -74,10 +75,14 @@ pub fn divide(dividend: i64, divisor: i64) -> Result<i64> {
     if divisor == 0 {
         return Err(Error::InvalidInput("divisor cannot be zero".to_string()));
     }
-    Ok(dividend / divisor)
+
+    dividend.checked_div(divisor).ok_or_else(|| Error::OperationFailed {
+        operation: "divide".to_string(),
+        cause: "overflow when dividing i64 values".to_string(),
+    })
 }
 
-/// Parses `input` as an integer and returns it.
+/// Parses `input` as a non-negative integer and returns it.
 ///
 /// # Arguments
 ///
@@ -85,7 +90,7 @@ pub fn divide(dividend: i64, divisor: i64) -> Result<i64> {
 ///
 /// # Returns
 ///
-/// The parsed integer value on success.
+/// The parsed non-negative integer value on success.
 ///
 /// # Errors
 ///
