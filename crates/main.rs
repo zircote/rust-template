@@ -10,7 +10,7 @@ use rust_template::{Config, add, divide};
 fn run() -> Result<(), rust_template::Error> {
     let config = Config::new().with_verbose(true);
 
-    if config.verbose {
+    if config.verbose() {
         eprintln!("Running rust_template with verbose mode enabled");
     }
 
@@ -31,5 +31,25 @@ fn main() -> ExitCode {
             eprintln!("Error: {e}");
             ExitCode::FAILURE
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_run_succeeds() {
+        let result = run();
+        assert!(
+            result.is_ok(),
+            "run() should succeed with the default implementation"
+        );
+    }
+
+    #[test]
+    fn test_main_returns_success() {
+        let exit_code = main();
+        assert_eq!(exit_code, ExitCode::SUCCESS);
     }
 }

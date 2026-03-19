@@ -198,7 +198,7 @@ jobs:
         run: |
           set -euo pipefail
           HASHES=$(sha256sum \
-            target/release/rust-template \
+            target/release/rust_template \
             | base64 -w0)
           echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
 

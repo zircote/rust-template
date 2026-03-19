@@ -4,6 +4,7 @@ use thiserror::Error;
 
 /// Error type for `rust_template` operations.
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Invalid input was provided.
     #[error("invalid input: {0}")]
@@ -55,11 +56,12 @@ pub const fn add(a: i64, b: i64) -> i64 {
 ///
 /// # Returns
 ///
-/// The quotient, or an error if `divisor` is zero.
+/// The quotient, or an error if `divisor` is zero or the operation overflows.
 ///
 /// # Errors
 ///
 /// Returns [`Error::InvalidInput`] if `divisor` is zero.
+/// Returns [`Error::OperationFailed`] if the division overflows.
 ///
 /// # Examples
 ///
@@ -73,18 +75,60 @@ pub fn divide(dividend: i64, divisor: i64) -> Result<i64> {
     if divisor == 0 {
         return Err(Error::InvalidInput("divisor cannot be zero".to_string()));
     }
-    Ok(dividend / divisor)
+
+    dividend.checked_div(divisor).ok_or_else(|| Error::OperationFailed {
+        operation: "divide".to_string(),
+        cause: "overflow when dividing i64 values".to_string(),
+    })
+}
+
+/// Parses `input` as a non-negative integer and returns it.
+///
+/// # Arguments
+///
+/// * `input` - A string slice to parse as an `i64`.
+///
+/// # Returns
+///
+/// The parsed non-negative integer value on success.
+///
+/// # Errors
+///
+/// - Returns [`Error::InvalidInput`] if `input` cannot be parsed as an `i64`.
+/// - Returns [`Error::OperationFailed`] if the parsed value is negative.
+///
+/// # Examples
+///
+/// ```rust
+/// use rust_template::process;
+///
+/// assert_eq!(process("42").unwrap(), 42);
+/// assert_eq!(process("0").unwrap(), 0);
+/// assert!(process("abc").is_err());
+/// assert!(process("-1").is_err());
+/// ```
+pub fn process(input: &str) -> Result<i64> {
+    let value = input
+        .parse::<i64>()
+        .map_err(|e| Error::InvalidInput(format!("not a valid integer: {e}")))?;
+
+    if value < 0 {
+        return Err(Error::OperationFailed {
+            operation: "process".to_string(),
+            cause: format!("value {value} is negative"),
+        });
+    }
+
+    Ok(value)
 }
 
 /// Configuration for the crate.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Config {
-    /// Enable verbose logging.
-    pub verbose: bool,
-    /// Maximum number of retries.
-    pub max_retries: u32,
-    /// Timeout in seconds.
-    pub timeout_secs: u64,
+    verbose: bool,
+    max_retries: u32,
+    timeout_secs: u64,
 }
 
 impl Default for Config {
@@ -102,6 +146,24 @@ impl Config {
             max_retries: 3,
             timeout_secs: 30,
         }
+    }
+
+    /// Returns whether verbose logging is enabled.
+    #[must_use]
+    pub const fn verbose(&self) -> bool {
+        self.verbose
+    }
+
+    /// Returns the maximum number of retries.
+    #[must_use]
+    pub const fn max_retries(&self) -> u32 {
+        self.max_retries
+    }
+
+    /// Returns the timeout in seconds.
+    #[must_use]
+    pub const fn timeout_secs(&self) -> u64 {
+        self.timeout_secs
     }
 
     /// Sets the verbose flag.
@@ -148,7 +210,6 @@ mod tests {
     #[test]
     fn test_divide_by_zero() {
         let result = divide(10, 0);
-        assert!(result.is_err());
         assert!(matches!(result, Err(Error::InvalidInput(ref msg)) if msg.contains("zero")));
     }
 
@@ -159,17 +220,39 @@ mod tests {
             .with_max_retries(5)
             .with_timeout(60);
 
-        assert!(config.verbose);
-        assert_eq!(config.max_retries, 5);
-        assert_eq!(config.timeout_secs, 60);
+        assert!(config.verbose());
+        assert_eq!(config.max_retries(), 5);
+        assert_eq!(config.timeout_secs(), 60);
     }
 
     #[test]
     fn test_config_default() {
         let config = Config::default();
-        assert!(!config.verbose);
-        assert_eq!(config.max_retries, 3);
-        assert_eq!(config.timeout_secs, 30);
+        assert!(!config.verbose());
+        assert_eq!(config.max_retries(), 3);
+        assert_eq!(config.timeout_secs(), 30);
+    }
+
+    #[test]
+    fn test_process_valid() {
+        assert_eq!(process("42").unwrap(), 42);
+        assert_eq!(process("0").unwrap(), 0);
+        assert_eq!(process("100").unwrap(), 100);
+    }
+
+    #[test]
+    fn test_process_invalid_input() {
+        let result = process("abc");
+        assert!(matches!(result, Err(Error::InvalidInput(_))));
+    }
+
+    #[test]
+    fn test_process_negative() {
+        let result = process("-1");
+        assert!(matches!(
+            result,
+            Err(Error::OperationFailed { ref operation, .. }) if operation == "process"
+        ));
     }
 
     #[test]

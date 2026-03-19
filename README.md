@@ -45,11 +45,11 @@ use rust_template::{add, divide, Config};
 fn main() -> Result<(), rust_template::Error> {
     // Basic arithmetic
     let sum = add(2, 3);
-    println!("2 + 3 = {}", sum);
+    println!("2 + 3 = {sum}");
 
     // Safe division with error handling
     let quotient = divide(10, 2)?;
-    println!("10 / 2 = {}", quotient);
+    println!("10 / 2 = {quotient}");
 
     // Using configuration builder
     let config = Config::new()
@@ -58,7 +58,7 @@ fn main() -> Result<(), rust_template::Error> {
         .with_timeout(60);
 
     println!("Config: verbose={}, retries={}, timeout={}s",
-        config.verbose, config.max_retries, config.timeout_secs);
+        config.verbose(), config.max_retries(), config.timeout_secs());
 
     Ok(())
 }
