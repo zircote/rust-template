@@ -101,6 +101,10 @@ jobs:
   snap:
     name: Build Snap Package
     runs-on: ubuntu-latest
+    env:
+      # The secrets context is not available in step `if:` expressions;
+      # expose the token via env so the publish step can gate on it.
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
     steps:
       - name: Checkout code
         # v6.0.2
@@ -130,13 +134,10 @@ jobs:
           gh release upload "$TAG" "$SNAP" --clobber
 
       - name: Publish to Snap Store
-        if: secrets.SNAPCRAFT_TOKEN != ''
+        if: env.SNAPCRAFT_STORE_CREDENTIALS != ''
         # v1.2.0
         uses: >-
           snapcore/action-publish@2f62f3ca778de25a88f1e29edb6ec4e763e53eef
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: >-
-            ${{ secrets.SNAPCRAFT_TOKEN }}
         with:
           snap: ${{ steps.build.outputs.snap }}
           release: stable

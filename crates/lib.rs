@@ -76,10 +76,12 @@ pub fn divide(dividend: i64, divisor: i64) -> Result<i64> {
         return Err(Error::InvalidInput("divisor cannot be zero".to_string()));
     }
 
-    dividend.checked_div(divisor).ok_or_else(|| Error::OperationFailed {
-        operation: "divide".to_string(),
-        cause: "overflow when dividing i64 values".to_string(),
-    })
+    dividend
+        .checked_div(divisor)
+        .ok_or_else(|| Error::OperationFailed {
+            operation: "divide".to_string(),
+            cause: "overflow when dividing i64 values".to_string(),
+        })
 }
 
 /// Parses `input` as a non-negative integer and returns it.

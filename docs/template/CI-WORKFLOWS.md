@@ -15,20 +15,22 @@ before any release work begins and eliminates duplicate checks.
 ```text
                        push/PR/tag
                             |
-                  +---------+---------+
-                  |         |         |
-                [ci]   [coverage] [test-matrix]*
-                  |                   (* PR only)
-        +---------+---------+
-        |                   |
-     [docker]          [release]**
-   (PR=build-only)     (** tags only)
-                            |
-       +--------+--------+--+--------+--------+
-       |        |        |  |        |        |
-    [sign] [publish] [pkgs] [sbom] [slsa-build]
-                                        |
-                                  [slsa-provenance]
+            +---------+-----+-----+-------------+
+            |         |           |             |
+          [ci]   [coverage] [test-matrix]* [pin-check]
+            |                 (* PR only)
+         [docker]
+       (PR=build-only)
+            |
+      [docker-sign]       (push/tags only — central signer)
+            |
+     [docker-verify]      (fail-closed gate)
+            |
+        [release]**       (** tags only; needs ci + docker-verify)
+            |
+     +--------+--------+--------+----------+
+     |        |        |        |          |
+  [sign] [publish] [pkgs]   [sbom] [slsa-binaries]
 ```
 
 ---
@@ -46,9 +48,12 @@ before any release work begins and eliminates duplicate checks.
 | Create Release | `release-create.yml` | `pipeline.yml` (tags) | GH release, git-cliff body, 5 binaries, CHANGELOG.md |
 | Sign Release | `release-sign.yml` | `pipeline.yml` (tags) | Cosign signing, SHA256/SHA512 checksums |
 | Publish | `release-publish.yml` | `pipeline.yml` (tags) | cargo package + crates.io publish |
-| Docker | `release-docker.yml` | `pipeline.yml` | Multi-platform Docker build/push to GHCR |
+| Docker | `release-docker.yml` | `pipeline.yml` | Multi-platform Docker build/push to GHCR; outputs the manifest digest |
 | Packages | `release-packages.yml` | `pipeline.yml` (tags) | Homebrew, Snap, MSI, deb, rpm |
 | SBOM | `release-sbom.yml` | `pipeline.yml` (tags) | SPDX SBOM generation, attach to release |
+| Pin Check | `zircote/.github` » `pin-check.yml` | `pipeline.yml` | Asserts every `uses:` is pinned to a 40-char SHA |
+| Sign and Attest Image | `zircote/.github` » `sign-and-attest.yml` | `pipeline.yml` (push/tags) | Cosign signature, SLSA provenance, SBOM + vuln report as OCI referrers |
+| Verify Image Attestations | `zircote/.github` » `verify-attestation.yml` | `pipeline.yml` (push/tags) | Fail-closed verification gate before release |
 
 ### Standalone Workflows
 
@@ -100,11 +105,18 @@ tag runs.
 
 **Job dependency chain:**
 
-- `ci`, `coverage`, `test-matrix` — run in parallel (test-matrix is PR only)
+- `ci`, `coverage`, `test-matrix`, `pin-check` — run in parallel
+  (test-matrix is PR only)
 - `docker` — needs `ci` (PR = build-only via `push: false`)
-- `release` — needs `ci` (tags only)
-- `sign`, `publish`, `packages`, `sbom`, `slsa-build` — need `release`
-- `slsa-provenance` — needs `slsa-build`
+- `docker-sign` — needs `docker` (push/tags only); calls the centralized
+  `zircote/.github` signer workflow, pinned by full commit SHA (SLSA
+  Build L3 isolation — the signing identity is the central workflow,
+  not this repository)
+- `docker-verify` — needs `docker-sign`; fail-closed verification of
+  signature, provenance, and SBOM attestations
+- `release` — needs `ci` + `docker-verify` (tags only) — a tag publishes
+  nothing unsigned
+- `sign`, `publish`, `packages`, `sbom`, `slsa-binaries` — need `release`
 
 ---
 
@@ -178,6 +190,9 @@ linux/arm64) and optionally pushes to GHCR. Uses GitHub Actions cache for
 layer caching. Tags follow semver and include `latest` for the default branch.
 
 **Inputs:** `push` (boolean, default: false).
+
+**Outputs:** `image-digest` — the pushed manifest digest (`sha256:...`),
+consumed by the `docker-sign`/`docker-verify` attestation chain.
 
 ### release-packages.yml
 

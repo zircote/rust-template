@@ -328,11 +328,11 @@ mod property_tests {
 
 All CI and release work is orchestrated through a single `pipeline.yml` that calls reusable workflows via `workflow_call` with explicit `needs:` dependencies.
 
-**CI stage** (`ci-checks.yml`): fmt, clippy, test (Linux/macOS/Windows), doc build, cargo-deny, MSRV check (1.92), `all-checks-pass` gate. Runs in parallel with `ci-coverage.yml` (LCOV/Codecov) and `ci-test-matrix.yml` (12-combo matrix, PR only).
+**CI stage** (`ci-checks.yml`): fmt, clippy, test (Linux/macOS/Windows), doc build, cargo-deny, MSRV check (1.92), `all-checks-pass` gate. Runs in parallel with `ci-coverage.yml` (LCOV/Codecov), `ci-test-matrix.yml` (12-combo matrix, PR only), and `pin-check` (central `zircote/.github` workflow asserting every `uses:` is pinned to a full commit SHA).
 
-**Docker** (`release-docker.yml`): multi-platform build after CI passes. PR = build-only; push on main/tags.
+**Docker** (`release-docker.yml`): multi-platform build after CI passes. PR = build-only; push on main/tags. Pushed images flow through `docker-sign` (centralized `zircote/.github` `sign-and-attest.yml`, pinned by full SHA — under SLSA Build L3 the signing identity is the central workflow, not this repo) and `docker-verify` (fail-closed attestation verification).
 
-**Release stage** (tags only, after CI): `release-create.yml` (GH release + git-cliff + 5 binaries + CHANGELOG.md commit), then in parallel: `release-sign.yml` (Cosign + checksums), `release-publish.yml` (crates.io), `release-packages.yml` (Homebrew/Snap/MSI/deb/rpm), `release-sbom.yml` (SPDX), and SLSA provenance (inline jobs).
+**Release stage** (tags only, after CI + `docker-verify` — a tag publishes nothing unsigned): `release-create.yml` (GH release + git-cliff + 5 binaries + CHANGELOG.md commit), then in parallel: `release-sign.yml` (Cosign + checksums), `release-publish.yml` (crates.io), `release-packages.yml` (Homebrew/Snap/MSI/deb/rpm), `release-sbom.yml` (SPDX), and `slsa-binaries` (build provenance attested over the published release binaries; verify with `gh attestation verify <file> --repo zircote/rust-template`). Artifact verification commands live in `SECURITY.md` § Verifying Release Artifacts.
 
 See `docs/template/CI-WORKFLOWS.md` for the full reference.
 
