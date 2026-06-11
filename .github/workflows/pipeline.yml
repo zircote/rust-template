@@ -45,10 +45,13 @@ jobs:
   # -----------------------------------------------------------
   ci:
     name: CI Checks
+    # stage 'docker' includes ci so the docker -> sign -> verify
+    # chain is exercisable via dispatch (docker needs ci)
     if: >-
       github.event_name != 'workflow_dispatch'
       || inputs.stage == 'all'
       || inputs.stage == 'ci'
+      || inputs.stage == 'docker'
     uses: ./.github/workflows/ci-checks.yml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

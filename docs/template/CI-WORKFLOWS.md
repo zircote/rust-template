@@ -101,7 +101,9 @@ tag `v*.*.*`, manual (with stage selector).
 tag runs.
 
 **Manual dispatch stages:** `all`, `ci`, `release`, `sign`, `publish`,
-`docker`, `packages`, `sbom`, `slsa`.
+`docker`, `packages`, `sbom`, `slsa`. Stage `docker` also runs `ci`
+(a dependency), making the build → push → sign → verify chain
+exercisable without cutting a tag.
 
 **Job dependency chain:**
 

@@ -99,9 +99,16 @@ jobs:
             ARGS+=(-f "sha=${SHA}")
           fi
 
-          gh api "$API_PATH" \
-            --method PUT "${ARGS[@]}"
-          echo "Changelog updated via GitHub API"
+          # main carries a ruleset requiring status checks; the
+          # GITHUB_TOKEN bot cannot bypass it, so a rejected push
+          # must not fail the release — the release body already
+          # carries the changelog content.
+          if gh api "$API_PATH" \
+            --method PUT "${ARGS[@]}"; then
+            echo "Changelog updated via GitHub API"
+          else
+            echo "::warning title=CHANGELOG.md not committed::Push to main was rejected (ruleset requires status checks). Release notes are unaffected. Update CHANGELOG.md via a PR or add a ruleset bypass actor."
+          fi
 
   build-binaries:
     name: Build ${{ matrix.target }}
