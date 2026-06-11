@@ -63,10 +63,12 @@ jobs:
       - name: Parse coverage percentage
         id: coverage
         run: |
-          COVERAGE=$(cargo llvm-cov --all-features \
-            --workspace --summary-only \
-            | grep -oP 'TOTAL\s+\d+\.\d+%' \
-            | grep -oP '\d+\.\d+' || echo "0")
+          # Parse the JSON report generated above; the summary-table
+          # TOTAL row puts an integer region count first, so a
+          # 'TOTAL <float>%' grep never matches and reported 0%.
+          COVERAGE=$(jq -r \
+            '.data[0].totals.lines.percent * 100 | round / 100' \
+            coverage.json || echo "0")
           echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
           echo "Coverage: ${COVERAGE}%"
 
