@@ -8,6 +8,13 @@ name: Docker
         description: "Push image to registry"
         type: boolean
         default: false
+    outputs:
+      image-digest:
+        description: >-
+          Manifest digest of the pushed image (sha256:...);
+          empty when push is false
+        value: >-
+          ${{ jobs.build-and-push.outputs.image-digest }}
   workflow_dispatch:
     inputs:
       push:
@@ -27,16 +34,15 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout repository
         # v6.0.2
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
-      - name: Set up Docker Buildx
-        # v3.9.0
-        uses: >-
-          docker/setup-buildx-action@7c525be6cc8a882d5163ce04293cac18617c709f
-
+      # Login must precede Buildx setup so the BuildKit builder image
+      # is pulled with credentials, not anonymously.
       - name: Log in to Container Registry
         if: inputs.push
         # v3.4.0
@@ -46,6 +52,11 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        # v3.9.0
+        uses: >-
+          docker/setup-buildx-action@7c525be6cc8a882d5163ce04293cac18617c709f
 
       - name: Extract metadata
         id: meta
@@ -65,6 +76,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
+        id: build
         # v6.10.0
         uses: >-
           docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
