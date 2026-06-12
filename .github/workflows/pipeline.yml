@@ -16,13 +16,7 @@ name: Pipeline
         options:
           - all
           - ci
-          - release
-          - sign
-          - publish
           - docker
-          - packages
-          - sbom
-          - slsa
         default: ci
 
 concurrency:
@@ -33,7 +27,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 permissions:
-  contents: write
+  contents: read
   packages: write
   id-token: write
   actions: read
@@ -149,118 +143,3 @@ jobs:
         needs.docker.outputs.image-digest }}
       attestation-repo: ${{ github.repository }}
 
-  # -----------------------------------------------------------
-  # Release Stage — tags only; gated on the fail-closed verify
-  # so a tag publishes nothing unsigned
-  # -----------------------------------------------------------
-  release:
-    name: Create Release
-    needs: [ci, docker-verify]
-    if: >-
-      (github.ref_type == 'tag'
-      && startsWith(github.ref, 'refs/tags/v'))
-      || (github.event_name == 'workflow_dispatch'
-      && (inputs.stage == 'all'
-      || inputs.stage == 'release'))
-    uses: ./.github/workflows/release-create.yml
-    with:
-      tag: ${{ github.ref_name }}
-
-  sign:
-    name: Sign Release
-    needs: [release]
-    if: >-
-      (github.ref_type == 'tag'
-      && startsWith(github.ref, 'refs/tags/v'))
-      || (github.event_name == 'workflow_dispatch'
-      && (inputs.stage == 'all'
-      || inputs.stage == 'sign'))
-    uses: ./.github/workflows/release-sign.yml
-    with:
-      tag: ${{ github.ref_name }}
-
-  publish:
-    name: Publish to crates.io
-    needs: [release]
-    if: >-
-      (github.ref_type == 'tag'
-      && startsWith(github.ref, 'refs/tags/v'))
-      || (github.event_name == 'workflow_dispatch'
-      && (inputs.stage == 'all'
-      || inputs.stage == 'publish'))
-    uses: ./.github/workflows/release-publish.yml
-    with:
-      tag: ${{ github.ref_name }}
-    secrets:
-      CARGO_REGISTRY_TOKEN: >-
-        ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-  packages:
-    name: Release Packages
-    needs: [release]
-    if: >-
-      (github.ref_type == 'tag'
-      && startsWith(github.ref, 'refs/tags/v'))
-      || (github.event_name == 'workflow_dispatch'
-      && (inputs.stage == 'all'
-      || inputs.stage == 'packages'))
-    uses: ./.github/workflows/release-packages.yml
-    with:
-      tag: ${{ github.ref_name }}
-    secrets:
-      HOMEBREW_TAP_TOKEN: >-
-        ${{ secrets.HOMEBREW_TAP_TOKEN }}
-      SNAPCRAFT_TOKEN: >-
-        ${{ secrets.SNAPCRAFT_TOKEN }}
-
-  sbom:
-    name: SBOM Generation
-    needs: [release]
-    if: >-
-      (github.ref_type == 'tag'
-      && startsWith(github.ref, 'refs/tags/v'))
-      || (github.event_name == 'workflow_dispatch'
-      && (inputs.stage == 'all'
-      || inputs.stage == 'sbom'))
-    uses: ./.github/workflows/release-sbom.yml
-    with:
-      tag: ${{ github.ref_name }}
-
-  # -----------------------------------------------------------
-  # SLSA — provenance for the released binaries via GitHub
-  # artifact attestations; attests the published assets, not a
-  # rebuild. Verify: gh attestation verify <file> --repo <o>/<r>
-  # -----------------------------------------------------------
-  slsa-binaries:
-    name: Attest Release Binaries
-    needs: [release]
-    if: >-
-      (github.ref_type == 'tag'
-      && startsWith(github.ref, 'refs/tags/v'))
-      || (github.event_name == 'workflow_dispatch'
-      && (inputs.stage == 'all'
-      || inputs.stage == 'slsa'))
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    steps:
-      - name: Download release binaries
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-          REPO: ${{ github.repository }}
-        run: |
-          gh release download "$TAG" \
-            --repo "$REPO" \
-            --pattern 'rust_template-*' \
-            --dir assets
-          rm -f assets/*.sig
-
-      - name: Attest build provenance
-        # v4.1.0
-        uses: >-
-          actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32
-        with:
-          subject-path: assets/*

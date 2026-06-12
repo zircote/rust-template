@@ -326,13 +326,21 @@ mod property_tests {
 
 ### CI/CD
 
-All CI and release work is orchestrated through a single `pipeline.yml` that calls reusable workflows via `workflow_call` with explicit `needs:` dependencies.
+CI and the container chain run through `pipeline.yml`; releases run through flat, independent tag-triggered workflows (`release.yml`, `publish.yml`, `package-homebrew.yml`) — the same architecture as `zircote/rlm-rs`, the verified reference.
+
+**Project specificity is var-driven**: the release workflows resolve the crate name, binary name, version, description, and license from `cargo metadata` at runtime, and owner/repo from the GitHub context. Instantiating the template requires editing only `Cargo.toml` (plus optional repo variable `HOMEBREW_TAP_REPO`, default `homebrew-tap`, and optional secret `HOMEBREW_TAP_TOKEN`). Nothing in the workflow files is renamed.
 
 **CI stage** (`ci-checks.yml`): fmt, clippy, test (Linux/macOS/Windows), doc build, cargo-deny, MSRV check (1.92), `all-checks-pass` gate. Runs in parallel with `ci-coverage.yml` (LCOV/Codecov), `ci-test-matrix.yml` (12-combo matrix, PR only), and `pin-check` (central `zircote/.github` workflow asserting every `uses:` is pinned to a full commit SHA).
 
 **Docker** (`release-docker.yml`): multi-platform build after CI passes. PR = build-only; push on main/tags. Pushed images flow through `docker-sign` (centralized `zircote/.github` `sign-and-attest.yml`, pinned by full SHA — under SLSA Build L3 the signing identity is the central workflow, not this repo) and `docker-verify` (fail-closed attestation verification).
 
-**Release stage** (tags only, after CI + `docker-verify` — a tag publishes nothing unsigned): `release-create.yml` (GH release + git-cliff + 5 binaries + CHANGELOG.md commit), then in parallel: `release-sign.yml` (Cosign + checksums), `release-publish.yml` (crates.io), `release-packages.yml` (Homebrew/Snap/MSI/deb/rpm), `release-sbom.yml` (SPDX), and `slsa-binaries` (build provenance attested over the published release binaries; verify with `gh attestation verify <file> --repo zircote/rust-template`). Artifact verification commands live in `SECURITY.md` § Verifying Release Artifacts.
+**Release** (`release.yml`, tags + dispatch dry-run): resolve metadata → 5-platform build matrix with per-binary SLSA provenance attested at build time (`{bin}-{version}-{platform}` naming) → test + cargo-audit gates (tags are untrusted input) → CycloneDX SBOM generated and attested over every binary → **fail-closed `gh attestation verify` before the release exists** → tag-gated GitHub Release with checksums. A tag publishes nothing unattested.
+
+**Publish** (`publish.yml`, tags + dispatch dry-run): pre-publish gauntlet → crates.io **Trusted Publishing** (OIDC, no long-lived token; one-time crates.io setup: workflow `publish.yml`, environment `copilot`) → download the registry-served `.crate`, byte-compare against the local package, attest the registry bytes.
+
+**Homebrew** (`package-homebrew.yml`): `workflow_run` on Release completion (bot-authored release events don't trigger workflows) → source formula generated from Cargo.toml metadata into `{owner}/homebrew-tap`.
+
+Releases are orchestrated by the `/release` skill (`.claude/skills/release/`). Artifact verification commands live in `SECURITY.md` § Verifying Release Artifacts.
 
 See `docs/template/CI-WORKFLOWS.md` for the full reference.
 

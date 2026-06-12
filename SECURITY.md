@@ -97,13 +97,32 @@ cosign verify-attestation "ghcr.io/zircote/rust-template@${DIGEST}" \
 #   --type "https://in-toto.io/attestation/vulns/v0.1"
 ```
 
-### Release binaries
+### Release binaries and SBOM
 
-Binaries attached to a GitHub Release carry build provenance attested by
-this repository's own release workflow (no `--signer-workflow` needed):
+Binaries attached to a GitHub Release carry SLSA build provenance and a
+CycloneDX SBOM attestation, both attested by this repository's own
+release workflow (no `--signer-workflow` needed). Artifact names embed
+the version: `rust_template-<version>-<platform>`.
 
 ```bash
-gh release download <tag> --repo zircote/rust-template
-gh attestation verify rust_template-linux-amd64 --repo zircote/rust-template
-sha256sum --check SHA256SUMS
+gh release download v<X.Y.Z> --repo zircote/rust-template
+gh attestation verify rust_template-<X.Y.Z>-linux-amd64 \
+  --repo zircote/rust-template
+gh attestation verify rust_template-<X.Y.Z>-linux-amd64 \
+  --repo zircote/rust-template \
+  --predicate-type https://cyclonedx.org/bom
+shasum -a 256 -c rust_template-<X.Y.Z>-checksums.txt
+```
+
+### Published crate
+
+The `.crate` archive served by crates.io is downloaded back from the
+registry after publish, byte-compared against the locally packaged
+archive, and attested — the attestation covers the bytes the registry
+actually serves:
+
+```bash
+curl -fsSL -A 'release-check' \
+  -O https://static.crates.io/crates/rust_template/rust_template-<X.Y.Z>.crate
+gh attestation verify rust_template-<X.Y.Z>.crate --repo zircote/rust-template
 ```

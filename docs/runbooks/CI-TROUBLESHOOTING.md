@@ -368,9 +368,9 @@ codeql database analyze my-db --format=sarif-latest --output=results.sarif
 | Error | Cause | Fix |
 |---|---|---|
 | `Cargo.toml version mismatch` | Version in Cargo.toml does not match the tag | Ensure `version = "X.Y.Z"` matches tag `vX.Y.Z` |
-| `linker 'aarch64-linux-gnu-gcc' not found` | Cross-compiler not installed | Check the ARM64 install step in the workflow |
+| `no [[bin]] target found in Cargo.toml` | The `meta` job resolves the binary name from `cargo metadata` | Ensure Cargo.toml declares a `[[bin]]` target |
 | `error[E0658]: feature not available` | Target requires newer Rust | Check MSRV compatibility for all targets |
-| `strip: unable to recognise` | Wrong strip binary for target | ARM64 Linux must use `aarch64-linux-gnu-strip` |
+| macos-amd64 build fails | Cross-target build (`x86_64-apple-darwin` on `macos-latest`) | Check the `targets:` input on the toolchain step; all other legs build natively |
 
 ### Missing Release Assets
 
@@ -384,17 +384,18 @@ gh release view vX.Y.Z
 gh run rerun <run-id> --failed
 ```
 
-### Missing Secrets
+### Publish or Attestation Failures
 
-If the publish or signing step fails:
+crates.io publishing (`publish.yml`) uses Trusted Publishing (OIDC) -- there is no registry token secret. If authentication fails with "No Trusted Publishing config found", complete the one-time setup on crates.io: crate **Settings > Trusted Publishing** > add this repo with workflow `publish.yml` and environment `copilot`.
 
 ```bash
 # Verify secrets are configured (you can't read them, just confirm they exist)
 gh secret list
 ```
 
-Secrets needed:
-- `CARGO_REGISTRY_TOKEN` for crates.io publishing
+Secrets and permissions involved:
+- `HOMEBREW_TAP_TOKEN` for Homebrew formula pushes (`package-homebrew.yml`)
+- `id-token: write` and `attestations: write` job permissions for attestation steps
 - `GITHUB_TOKEN` is automatic
 
 ---

@@ -2,13 +2,16 @@
 
 ## Overview
 
-Automated package generation for multiple platforms and package managers.
+Automated distribution for the channels this template ships with:
 
 **Workflows:**
-- `.github/workflows/package-homebrew.yml` - macOS Homebrew
-- `.github/workflows/package-linux.yml` - Debian (.deb) and RPM (.rpm)
-- `.github/workflows/package-snap.yml` - Snap packages (Linux)
-- `.github/workflows/package-windows.yml` - Windows MSI installer
+- `.github/workflows/package-homebrew.yml` - Homebrew tap formula (macOS/Linux)
+- `.github/workflows/publish.yml` - crates.io via Trusted Publishing
+- `.github/workflows/release.yml` - attested multi-platform binaries on GitHub Releases
+
+Both workflows resolve project specificity (crate name, binary name, description, license) from `cargo metadata` at runtime — instantiating the template requires no edits to the workflow files.
+
+> **Removed from the template:** Debian (`.deb`), RPM, Snap, and Windows MSI packaging workflows are no longer included. See [Re-adding Removed Channels](#re-adding-removed-channels) if your project needs them.
 
 ## Installation Methods
 
@@ -26,240 +29,112 @@ brew upgrade rust-template
 ```
 
 **Setup Requirements:**
-1. Create `homebrew-tap` repository: `https://github.com/USER/homebrew-tap`
-2. Add secret `HOMEBREW_TAP_TOKEN` with repo access
-3. Formula auto-updates on releases
+1. Create a `homebrew-tap` repository: `https://github.com/USER/homebrew-tap` (override the repo name with the `HOMEBREW_TAP_REPO` repository variable)
+2. Add secret `HOMEBREW_TAP_TOKEN` with write access to the tap repo
+3. Formula auto-updates after each release
 
-### Debian/Ubuntu (.deb)
+**How the formula is generated:**
 
-```bash
-# Download from releases
-wget https://github.com/USER/REPO/releases/download/v0.1.0/rust-template_0.1.0_amd64.deb
+`package-homebrew.yml` triggers via `workflow_run` when the Release workflow completes (bot-authored release events do not trigger workflows, so `workflow_run` is the reliable path). It checks out the project at the released tag, resolves the binary name, description, and license from `cargo metadata`, and writes a **source formula** (builds with `cargo install` from the tag tarball) to `Formula/<name>.rb` in the tap.
 
-# Install
-sudo dpkg -i rust-template_0.1.0_amd64.deb
-
-# Install dependencies if needed
-sudo apt-get install -f
-```
-
-**Package Contents:**
-- Binary: `/usr/bin/rust-template`
-- Man pages: `/usr/share/man/man1/`
-- Documentation: `/usr/share/doc/rust-template/`
-
-### RPM (Fedora/RHEL/CentOS)
+### crates.io (Trusted Publishing)
 
 ```bash
-# Download from releases
-wget https://github.com/USER/REPO/releases/download/v0.1.0/rust-template-0.1.0-1.x86_64.rpm
+# Install the binary
+cargo install rust_template
 
-# Install
-sudo rpm -i rust-template-0.1.0-1.x86_64.rpm
-
-# Or with dnf
-sudo dnf install ./rust-template-0.1.0-1.x86_64.rpm
+# Or use as a dependency
+cargo add rust_template
 ```
 
-### Snap (Universal Linux)
+Publishing runs in `publish.yml` on every `v*.*.*` tag using crates.io **Trusted Publishing** (OIDC). There is no `CARGO_REGISTRY_TOKEN` secret.
+
+**One-time setup:**
+1. On crates.io, open the crate's **Settings > Trusted Publishing**
+2. Add this GitHub repository with workflow `publish.yml` and environment `copilot`
+
+After publishing, the workflow downloads the `.crate` the registry serves, byte-compares it to the local package, and attests it:
 
 ```bash
-# Install from Snap Store
-sudo snap install rust-template
-
-# Or install from file
-sudo snap install rust-template_0.1.0_amd64.snap --dangerous
+curl -fsSL -A 'release-check' \
+  -O https://static.crates.io/crates/rust_template/rust_template-0.1.0.crate
+gh attestation verify rust_template-0.1.0.crate --repo USER/REPO
 ```
 
-**Snap Confinement:** `strict` - Limited system access for security
+### GitHub Releases (prebuilt binaries)
 
-**Required Permissions:**
-- `home` - Access user home directory
-- `network` - Network connectivity
+Every release attaches attested binaries named `{bin}-{version}-{platform}`:
 
-### Windows MSI
+- `rust_template-0.1.0-linux-amd64`
+- `rust_template-0.1.0-linux-arm64`
+- `rust_template-0.1.0-macos-amd64`
+- `rust_template-0.1.0-macos-arm64`
+- `rust_template-0.1.0-windows-amd64.exe`
 
-```powershell
-# Download MSI from releases
-# https://github.com/USER/REPO/releases/download/v0.1.0/rust-template-0.1.0-x64.msi
+Plus a CycloneDX SBOM and a `{bin}-{version}-checksums.txt` file. Verify before use:
 
-# Install via GUI or command line
-msiexec /i rust-template-0.1.0-x64.msi
-
-# Silent install
-msiexec /i rust-template-0.1.0-x64.msi /quiet
+```bash
+gh release download v0.1.0 --repo USER/REPO
+gh attestation verify rust_template-0.1.0-linux-amd64 --repo USER/REPO
+shasum -a 256 -c rust_template-0.1.0-checksums.txt
 ```
 
-**Install Location:** `C:\Program Files\rust-template\`
-
-## Configuration
-
-### Debian Package Metadata
-
-Add to `Cargo.toml`:
-
-```toml
-[package.metadata.deb]
-maintainer = "Your Name <email@example.com>"
-copyright = "2026, Your Name"
-license-file = ["LICENSE", "0"]
-extended-description = """\
-Detailed description of the package.
-Multiple lines supported."""
-depends = "$auto"
-section = "utility"
-priority = "optional"
-assets = [
-    ["target/release/rust-template", "usr/bin/", "755"],
-    ["README.md", "usr/share/doc/rust-template/", "644"],
-]
-```
-
-### RPM Package Metadata
-
-Add to `Cargo.toml`:
-
-```toml
-[package.metadata.generate-rpm]
-name = "rust-template"
-assets = [
-    { source = "target/release/rust-template", dest = "/usr/bin/", mode = "755" },
-    { source = "README.md", dest = "/usr/share/doc/rust-template/", mode = "644" },
-]
-
-[package.metadata.generate-rpm.requires]
-# Add runtime dependencies if needed
-```
-
-### Snap Configuration
-
-Edit `snap/snapcraft.yaml`:
-
-```yaml
-name: rust-template
-base: core22
-version: git
-summary: One-line summary
-description: |
-  Multi-line description
-  of your application
-
-grade: stable  # or 'devel' for development
-confinement: strict  # or 'classic' for full system access
-
-apps:
-  rust-template:
-    command: bin/rust-template
-    plugs:
-      - home
-      - network
-      # Add more as needed:
-      # - removable-media
-      # - desktop
-```
-
-### Windows MSI Configuration
-
-Create `wix/main.wxs` after running `cargo wix init`:
-
-```xml
-<?xml version='1.0' encoding='windows-1252'?>
-<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
-    <Product
-        Id='*'
-        Name='rust-template'
-        UpgradeCode='YOUR-GUID-HERE'
-        Manufacturer='Your Company'
-        Language='1033'
-        Version='$(var.Version)'>
-
-        <Package InstallerVersion='450' Compressed='yes' InstallScope='perMachine' />
-
-        <MajorUpgrade
-            DowngradeErrorMessage='A newer version is already installed.' />
-
-        <MediaTemplate EmbeddedCab='yes' />
-
-        <Directory Id='TARGETDIR' Name='SourceDir'>
-            <Directory Id='ProgramFiles64Folder'>
-                <Directory Id='APPLICATIONFOLDER' Name='rust-template'>
-                    <Component Id='MainExecutable'>
-                        <File Source='target\release\rust-template.exe' />
-                    </Component>
-                </Directory>
-            </Directory>
-        </Directory>
-
-        <Feature Id='Complete'>
-            <ComponentRef Id='MainExecutable' />
-        </Feature>
-    </Product>
-</Wix>
-```
+See [SECURITY.md](../../SECURITY.md#verifying-release-artifacts) for the full verification reference.
 
 ## CI/CD Integration
 
 ### On Release
 
-All packages build automatically on GitHub release:
-
 1. Tag release: `git tag v0.1.0 && git push origin v0.1.0`
-2. Create GitHub release
-3. Workflows trigger automatically
-4. Packages attach to release
+2. `release.yml` builds, attests, verifies, and publishes the GitHub Release
+3. `publish.yml` publishes to crates.io and attests the served `.crate`
+4. `package-homebrew.yml` fires on Release completion and updates the tap formula
 
 ### Manual Trigger
 
 ```bash
-# Trigger workflow manually
+# Preview the Homebrew formula without pushing
+gh workflow run package-homebrew.yml -f version=0.1.0 -f dry_run=true
+
+# Regenerate and push the formula for an existing release
 gh workflow run package-homebrew.yml -f version=0.1.0 -f dry_run=false
-gh workflow run package-linux.yml
-gh workflow run package-snap.yml
-gh workflow run package-windows.yml
+
+# Dry-run the publish chain from a branch (tag-gated steps are skipped)
+gh workflow run publish.yml
 ```
 
 ## Troubleshooting
 
-### Debian Package Fails
+### Homebrew Formula Push Fails
+
+- `HOMEBREW_TAP_TOKEN` missing, expired, or lacking write access to the tap repo
+- Tap repository does not exist (create `USER/homebrew-tap` or set `HOMEBREW_TAP_REPO`)
+- In dry-run mode the formula is printed to the job log and nothing is pushed
+
+### Homebrew Workflow Did Not Run
+
+The `workflow_run` trigger only proceeds for **successful, tag-triggered** Release runs. Check the Release workflow conclusion, then fall back to manual dispatch:
 
 ```bash
-# Check dependencies
-cargo deb --no-build --no-strip --verbose
-
-# Lint package
-lintian target/debian/*.deb
+gh workflow run package-homebrew.yml -f version=X.Y.Z -f dry_run=false
 ```
 
-### RPM Build Fails
+### crates.io Publish Fails
 
-```bash
-# Check RPM metadata
-cargo generate-rpm --auto-req disabled
+- `No Trusted Publishing config found`: complete the one-time setup (workflow `publish.yml`, environment `copilot`)
+- `crate ... already exists`: versions are immutable; a duplicate attempt after a successful publish is benign
+- Crate download/byte-compare step fails after retries: CDN propagation delay — re-run the failed job; the publish itself succeeded
 
-# Verify spec
-rpmlint target/generate-rpm/*.rpm
-```
+## Re-adding Removed Channels
 
-### Snap Build Fails
+If your project needs Debian, RPM, Snap, or MSI packages, these tools generate them from a Rust project:
 
-```bash
-# Local snap build
-snapcraft clean
-snapcraft
+- [cargo-deb](https://github.com/kornelski/cargo-deb) - Debian packages
+- [cargo-generate-rpm](https://github.com/cat-in-136/cargo-generate-rpm) - RPM packages
+- [cargo-wix](https://github.com/volks73/cargo-wix) - Windows MSI installers
+- [Snapcraft](https://snapcraft.io/docs) - Snap packages
 
-# Check confinement issues
-snap connections rust-template
-```
-
-### MSI Build Fails
-
-```powershell
-# Check WiX configuration
-cargo wix --nocapture --verbose
-
-# Verify MSI
-msiexec /i target/wix/*.msi /l*v install.log
-```
+They were removed from the template in favor of attested GitHub Release binaries, Homebrew, and crates.io. If you add one back, route it through the attestation flow (attest the package, verify fail-closed) to keep the "nothing publishes unattested" guarantee.
 
 ## Publishing to Stores
 
@@ -271,21 +146,9 @@ For official Homebrew inclusion:
 2. Create PR to [homebrew-core](https://github.com/Homebrew/homebrew-core)
 3. Follow [Formula Cookbook](https://docs.brew.sh/Formula-Cookbook)
 
-### Snap Store
-
-```bash
-# Login to Snap Store
-snapcraft login
-
-# Upload snap
-snapcraft upload rust-template_0.1.0_amd64.snap --release stable
-
-# Or use workflow automation with SNAPCRAFT_TOKEN secret
-```
-
 ### Windows Package Manager (winget)
 
-Create manifest in [winget-pkgs](https://github.com/microsoft/winget-pkgs):
+winget can install the release binary directly as a portable package. Create a manifest in [winget-pkgs](https://github.com/microsoft/winget-pkgs):
 
 ```yaml
 # manifests/r/rust-template/rust-template/0.1.0/rust-template.rust-template.yaml
@@ -298,9 +161,9 @@ License: MIT
 ShortDescription: Modern Rust template
 Installers:
   - Architecture: x64
-    InstallerType: wix
-    InstallerUrl: https://github.com/USER/REPO/releases/download/v0.1.0/rust-template-0.1.0-x64.msi
-    InstallerSha256: HASH
+    InstallerType: portable
+    InstallerUrl: https://github.com/USER/REPO/releases/download/v0.1.0/rust_template-0.1.0-windows-amd64.exe
+    InstallerSha256: HASH  # from rust_template-0.1.0-checksums.txt
 ManifestType: singleton
 ManifestVersion: 1.0.0
 ```
@@ -310,20 +173,20 @@ ManifestVersion: 1.0.0
 ### Test Installations
 
 ```bash
-# Debian
-docker run -it debian:latest bash -c "apt update && apt install -y ./rust-template.deb && rust-template --version"
+# Homebrew
+brew install USER/tap/rust-template && rust-template --version
 
-# RPM
-docker run -it fedora:latest bash -c "dnf install -y ./rust-template.rpm && rust-template --version"
+# crates.io
+cargo install rust_template && rust_template --version
 
-# Snap
-sudo snap install rust-template_*_amd64.snap --dangerous && rust-template --version
+# GitHub Release binary (Linux)
+gh attestation verify rust_template-0.1.0-linux-amd64 --repo USER/REPO && \
+  chmod +x rust_template-0.1.0-linux-amd64 && \
+  ./rust_template-0.1.0-linux-amd64 --version
 ```
 
 ## Links
 
-- [cargo-deb](https://github.com/kornelski/cargo-deb)
-- [cargo-generate-rpm](https://github.com/cat-in-136/cargo-generate-rpm)
-- [cargo-wix](https://github.com/volks73/cargo-wix)
-- [Snapcraft Documentation](https://snapcraft.io/docs)
 - [Homebrew Formula Cookbook](https://docs.brew.sh/Formula-Cookbook)
+- [crates.io Trusted Publishing](https://crates.io/docs/trusted-publishing)
+- [GitHub Artifact Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations)

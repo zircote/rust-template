@@ -13,6 +13,7 @@ that calls reusable workflows via `workflow_call`. This ensures CI passes
 before any release work begins and eliminates duplicate checks.
 
 ```text
+pipeline.yml (push/PR/tag/manual)
                        push/PR/tag
                             |
             +---------+-----+-----+-------------+
@@ -25,12 +26,17 @@ before any release work begins and eliminates duplicate checks.
       [docker-sign]       (push/tags only — central signer)
             |
      [docker-verify]      (fail-closed gate)
-            |
-        [release]**       (** tags only; needs ci + docker-verify)
-            |
-     +--------+--------+--------+----------+
-     |        |        |        |          |
-  [sign] [publish] [pkgs]   [sbom] [slsa-binaries]
+
+release.yml (tag push; dispatch = dry-run)
+  [meta] -> [build x5 + attest] -> [sbom + attest] -> [verify]** -> [release]*
+            [test] [audit] ----------------------------^
+  (* tags only; ** fail-closed BEFORE the release exists)
+
+publish.yml (tag push; dispatch = dry-run)
+  checks -> Trusted Publishing (OIDC) -> registry .crate byte-compare -> attest
+
+package-homebrew.yml
+  release.yml completion --workflow_run--> source formula -> <owner>/homebrew-tap
 ```
 
 ---
@@ -45,12 +51,10 @@ before any release work begins and eliminates duplicate checks.
 | CI Checks | `ci-checks.yml` | `pipeline.yml` | fmt, clippy, test (3-OS), doc, deny, msrv, gate |
 | Code Coverage | `ci-coverage.yml` | `pipeline.yml` | LCOV/HTML/JSON coverage, Codecov, PR comment |
 | Test Matrix | `ci-test-matrix.yml` | `pipeline.yml` (PR only) | 12-combo matrix, integration tests, Miri |
-| Create Release | `release-create.yml` | `pipeline.yml` (tags) | GH release, git-cliff body, 5 binaries, CHANGELOG.md |
-| Sign Release | `release-sign.yml` | `pipeline.yml` (tags) | Cosign signing, SHA256/SHA512 checksums |
-| Publish | `release-publish.yml` | `pipeline.yml` (tags) | cargo package + crates.io publish |
 | Docker | `release-docker.yml` | `pipeline.yml` | Multi-platform Docker build/push to GHCR; outputs the manifest digest |
-| Packages | `release-packages.yml` | `pipeline.yml` (tags) | Homebrew, Snap, MSI, deb, rpm |
-| SBOM | `release-sbom.yml` | `pipeline.yml` (tags) | SPDX SBOM generation, attach to release |
+| Release | `release.yml` | tags, manual (dry-run) | 5 attested binaries + attested SBOM + fail-closed verify → GH Release |
+| Publish | `publish.yml` | tags, manual (dry-run) | crates.io Trusted Publishing (OIDC) + registry `.crate` attestation |
+| Homebrew | `package-homebrew.yml` | `workflow_run` (Release), release, manual | Source formula in `<owner>/homebrew-tap`, metadata from Cargo.toml |
 | Pin Check | `zircote/.github` » `pin-check.yml` | `pipeline.yml` | Asserts every `uses:` is pinned to a 40-char SHA |
 | Sign and Attest Image | `zircote/.github` » `sign-and-attest.yml` | `pipeline.yml` (push/tags) | Cosign signature, SLSA provenance, SBOM + vuln report as OCI referrers |
 | Verify Image Attestations | `zircote/.github` » `verify-attestation.yml` | `pipeline.yml` (push/tags) | Fail-closed verification gate before release |
@@ -100,10 +104,11 @@ tag `v*.*.*`, manual (with stage selector).
 **Concurrency:** Cancels in-progress runs for branches/PRs; never cancels
 tag runs.
 
-**Manual dispatch stages:** `all`, `ci`, `release`, `sign`, `publish`,
-`docker`, `packages`, `sbom`, `slsa`. Stage `docker` also runs `ci`
-(a dependency), making the build → push → sign → verify chain
-exercisable without cutting a tag.
+**Manual dispatch stages:** `all`, `ci`, `docker`. Stage `docker` also
+runs `ci` (a dependency), making the build → push → sign → verify chain
+exercisable without cutting a tag. Releases are NOT orchestrated by the
+pipeline — they run as independent tag-triggered workflows
+(`release.yml`, `publish.yml`, `package-homebrew.yml`).
 
 **Job dependency chain:**
 
@@ -116,9 +121,6 @@ exercisable without cutting a tag.
   not this repository)
 - `docker-verify` — needs `docker-sign`; fail-closed verification of
   signature, provenance, and SBOM attestations
-- `release` — needs `ci` + `docker-verify` (tags only) — a tag publishes
-  nothing unsigned
-- `sign`, `publish`, `packages`, `sbom`, `slsa-binaries` — need `release`
 
 ---
 
@@ -154,36 +156,60 @@ report.
 
 ---
 
-## Release Reusable Workflows
+## Release Workflows
 
-### release-create.yml
+All release workflows are **var-driven**: crate name, binary name,
+version, description, and license are resolved at runtime from
+`cargo metadata`; owner/repo come from the GitHub context. Instantiating
+the template requires editing only `Cargo.toml` — nothing in these files
+is renamed. They mirror the verified architecture of `zircote/rlm-rs`.
 
-**What it does:** Creates a GitHub Release with an auto-generated changelog
-(via git-cliff), builds release binaries for five targets (Linux x86_64,
-Linux aarch64, macOS x86_64, macOS aarch64, Windows x86_64), and commits the
-full CHANGELOG.md to the `main` branch via GitHub API. Eliminates the separate
-changelog workflow.
+### release.yml
 
-**Inputs:** `tag` (required).
+**What it does:** On a `v*.*.*` tag: resolves project metadata, builds
+five platform binaries (`{bin}-{version}-{platform}` naming;
+linux-amd64, linux-arm64 on native arm runners, macos-arm64, macos-amd64
+via cross-target, windows-amd64) with SLSA build provenance attested at
+build time, runs test and cargo-audit gates (tags are untrusted input),
+generates and attests a CycloneDX SBOM bound to every binary, then
+**fail-closed verifies every attestation before the GitHub Release is
+created**. The tag-gated release job attaches binaries, the SBOM, and a
+checksums file, with auto-generated release notes. A tag publishes
+nothing unattested.
 
-### release-sign.yml
+**Triggers:** tag push; `workflow_dispatch` from any branch is a dry-run
+(version suffixed `-dev`, publish job skipped).
 
-**What it does:** Downloads all assets from the GitHub release, signs each
-with Sigstore Cosign (keyless OIDC), generates SHA-256 and SHA-512 checksum
-files, signs the checksums, and uploads everything back. Appends verification
-instructions to the release notes.
+**Secrets:** `HOMEBREW_TAP_TOKEN` (optional — PAT lets the release event
+propagate to downstream workflows; `workflow_run` is the fallback).
 
-**Inputs:** `tag` (required).
+### publish.yml
 
-### release-publish.yml
+**What it does:** Pre-publish gauntlet (fmt, clippy, test, doc, deny,
+package, dry-run publish), then crates.io **Trusted Publishing** via
+OIDC — no long-lived registry token. After publish it downloads the
+`.crate` the registry actually serves, byte-compares it against the
+local package, and attests the registry bytes.
 
-**What it does:** Publishes the crate to crates.io. Runs `cargo package`
-validation and a dry-run before the actual publish. CI is guaranteed by the
-`needs: [ci] -> needs: [release]` chain — no duplicate checks.
+**One-time setup per crate:** crates.io → crate Settings → Trusted
+Publishing → this repo, workflow `publish.yml`, environment `copilot`.
 
-**Inputs:** `tag` (required).
+**Triggers:** tag push; `workflow_dispatch` is a dry-run (publish and
+attest steps are tag-gated).
 
-**Secrets:** `CARGO_REGISTRY_TOKEN` (required).
+### package-homebrew.yml
+
+**What it does:** Generates a source formula (name, description, and
+license read from Cargo.toml at the released tag) and pushes it to
+`{owner}/homebrew-tap` (override with repo variable
+`HOMEBREW_TAP_REPO`). Triggered by `workflow_run` on Release completion
+because bot-authored release events do not trigger workflows; idempotent
+on repeated firings.
+
+**Triggers:** `workflow_run` (Release), release published, manual
+dispatch with `version` and `dry_run` inputs.
+
+**Secrets:** `HOMEBREW_TAP_TOKEN` (required for tap pushes).
 
 ### release-docker.yml
 
@@ -195,23 +221,6 @@ layer caching. Tags follow semver and include `latest` for the default branch.
 
 **Outputs:** `image-digest` — the pushed manifest digest (`sha256:...`),
 consumed by the `docker-sign`/`docker-verify` attestation chain.
-
-### release-packages.yml
-
-**What it does:** Builds distribution packages in five parallel jobs: Homebrew
-formula update, Snap package, Windows MSI installer, Debian package (.deb),
-and RPM package (.rpm). All packages are attached to the GitHub release.
-
-**Inputs:** `tag` (required).
-
-**Secrets:** `HOMEBREW_TAP_TOKEN` (optional), `SNAPCRAFT_TOKEN` (optional).
-
-### release-sbom.yml
-
-**What it does:** Generates a Software Bill of Materials in SPDX 2.3 JSON
-format using `cargo-sbom` and attaches it to the GitHub release.
-
-**Inputs:** `tag` (required).
 
 ---
 
@@ -363,9 +372,10 @@ sessions.
 
 ### Running a specific pipeline stage manually
 
-Navigate to **Actions > Pipeline > Run workflow** and select a stage from the
-dropdown: `all`, `ci`, `release`, `sign`, `publish`, `docker`, `packages`,
-`sbom`, or `slsa`.
+Navigate to **Actions > Pipeline > Run workflow** and select a stage from
+the dropdown: `all`, `ci`, or `docker`. To dry-run the release chain
+without a tag, dispatch **Release** or **Publish to crates.io** instead —
+both tag-gate their publish-side steps.
 
 ### Running a reusable workflow standalone
 
@@ -396,12 +406,24 @@ independently.
 |---|---|---|---|
 | `GITHUB_TOKEN` | multiple | GitHub API access | Built-in |
 | `CODECOV_TOKEN` | `ci-coverage.yml`, `ci-checks.yml` | Coverage upload | Optional |
-| `CARGO_REGISTRY_TOKEN` | `release-publish.yml` | crates.io publish | If publishing |
 | `GITLEAKS_LICENSE` | `secrets-scan.yml` | Gitleaks license | Optional |
 | `DOCKERHUB_USERNAME` | `docker-hub.yml` | Docker Hub username | If using Docker Hub |
 | `DOCKERHUB_TOKEN` | `docker-hub.yml` | Docker Hub token | If using Docker Hub |
-| `HOMEBREW_TAP_TOKEN` | `release-packages.yml` | Homebrew tap write access | If using Homebrew |
-| `SNAPCRAFT_TOKEN` | `release-packages.yml` | Snap Store credentials | Optional |
+| `HOMEBREW_TAP_TOKEN` | `package-homebrew.yml`, `release.yml` | Homebrew tap write access; release-event propagation | If using Homebrew |
+
+crates.io publishing uses **Trusted Publishing (OIDC)** — there is no
+registry token secret. One-time setup on crates.io: crate Settings →
+Trusted Publishing → this repo, workflow `publish.yml`, environment
+`copilot`.
+
+### Repository Variables
+
+| Variable | Used By | Purpose | Default |
+|---|---|---|---|
+| `HOMEBREW_TAP_REPO` | `package-homebrew.yml` | Tap repository name under the owner | `homebrew-tap` |
+
+All other project specificity (crate name, binary name, version,
+description, license) is resolved from `cargo metadata` at runtime.
 
 Configure secrets at **Settings > Secrets and variables > Actions > New
 repository secret**.

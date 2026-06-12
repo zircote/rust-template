@@ -183,24 +183,33 @@ This template includes production-ready workflows:
 
 ### Release and Deployment
 
-- **Release** (`.github/workflows/release-create.yml`) - Automated GitHub releases with multi-platform binaries
+- **Release** (`.github/workflows/release.yml`) - Attested GitHub releases with multi-platform binaries
   - Builds for: Linux (`x86_64`, ARM64), macOS (`x86_64`, ARM64), Windows (`x86_64`)
-  - Automatic changelog generation via git-cliff
-  - Binary artifacts uploaded to releases
-  - CHANGELOG.md committed back to repository
+  - Artifacts named `{bin}-{version}-{platform}` (e.g. `rust_template-0.2.0-linux-amd64`)
+  - SLSA build provenance and CycloneDX SBOM attestations on every binary
+  - Fail-closed `gh attestation verify` gate runs before the release is published
+  - Single `{bin}-{version}-checksums.txt` checksums file
 
-- **Docker** (`.github/workflows/release-docker.yml`) - Multi-platform container builds
+- **Docker** (`.github/workflows/release-docker.yml` via `pipeline.yml`) - Multi-platform container builds
   - Platforms: linux/amd64, linux/arm64
   - Distroless base image for security
   - Published to GitHub Container Registry (ghcr.io)
   - Tagged with version and 'latest'
+  - Signed and attested by a centralized signer workflow, then verified fail-closed
 
-- **Publish** (`.github/workflows/release-publish.yml`) - Automated crates.io publishing
+- **Publish** (`.github/workflows/publish.yml`) - Automated crates.io publishing
   - Full pre-publish validation
   - Triggered on version tags
-  - Requires `CARGO_REGISTRY_TOKEN` secret
+  - crates.io Trusted Publishing (OIDC) - no registry token secret
+  - The registry-served `.crate` is downloaded back, byte-compared, and attested
+
+- **Homebrew** (`.github/workflows/package-homebrew.yml`) - Tap formula updates
+  - Runs after each Release completes
+  - Generates a source formula from Cargo.toml metadata into `{owner}/homebrew-tap`
 
 ### Creating a Release
+
+Releases are orchestrated end-to-end by the `/release` skill (`.claude/skills/release/SKILL.md`). The manual equivalent:
 
 1. Update version in `Cargo.toml`
 2. Create and push a version tag:
@@ -209,11 +218,15 @@ This template includes production-ready workflows:
    git push origin v0.2.0
    ```
 3. Workflows automatically:
-   - Generate changelog
-   - Build binaries for all platforms
-   - Create GitHub release with artifacts
-   - Build and push Docker images
-   - Publish to crates.io
+   - Build binaries for all platforms with SLSA build provenance
+   - Generate and attest a CycloneDX SBOM
+   - Verify every attestation (fail-closed) before publishing anything
+   - Create GitHub release with artifacts and checksums
+   - Build, sign, and push Docker images
+   - Publish to crates.io via Trusted Publishing
+   - Update the Homebrew tap formula
+
+Verification commands for every artifact type live in [SECURITY.md](SECURITY.md#verifying-release-artifacts).
 
 ### AI Coding Agent
 
