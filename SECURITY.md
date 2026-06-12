@@ -62,7 +62,7 @@ Prerequisites: `gh` CLI authenticated, `cosign` installed.
 ### Resolve the digest for a tag
 
 ```bash
-DIGEST=$(gh api 'users/zircote/packages/container/rust-template/versions?per_page=20' \
+DIGEST=$(gh api 'users/zircote/packages/container/rust-template/versions?per_page=100' \
   --jq '[.[] | select((.metadata.container.tags // []) | index("<tag>"))][0].name')
 ```
 
