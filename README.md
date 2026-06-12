@@ -183,6 +183,8 @@ This template includes production-ready workflows:
 
 ### Release and Deployment
 
+> **Template state: publication disabled.** `publish = false` in Cargo.toml gates GitHub Release creation, crates.io publishing, and Homebrew updates (workflows read it via `cargo metadata`); the build → attest → verify chain still runs as CI validation. Delete that line in your project to arm all three channels.
+
 - **Release** (`.github/workflows/release.yml`) - Attested GitHub releases with multi-platform binaries
   - Builds for: Linux (`x86_64`, ARM64), macOS (`x86_64`, ARM64), Windows (`x86_64`)
   - Artifacts named `{bin}-{version}-{platform}` (e.g. `rust_template-0.2.0-linux-amd64`)

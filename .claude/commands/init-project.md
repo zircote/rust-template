@@ -184,6 +184,11 @@ Use the Edit tool to update Cargo.toml with the interview answers:
 5. `license` -> user's license choice
 6. `rust-version` -> user's MSRV choice
 7. `version` -> reset to `"0.1.0"`
+8. **Remove the `publish = false` line and its comment block** — this
+   single switch (read by the workflows via `cargo metadata`) is what
+   arms crates.io publishing, GitHub Release creation, and Homebrew tap
+   updates. If the user wants a private/unpublished project, keep it and
+   note that release artifacts stay disabled.
 
 If **library-only** (no binary):
 - Remove the entire `[[bin]]` section

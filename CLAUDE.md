@@ -330,6 +330,8 @@ CI and the container chain run through `pipeline.yml`; releases run through flat
 
 **Project specificity is var-driven**: the release workflows resolve the crate name, binary name, version, description, and license from `cargo metadata` at runtime, and owner/repo from the GitHub context. Instantiating the template requires editing only `Cargo.toml` (plus optional repo variable `HOMEBREW_TAP_REPO`, default `homebrew-tap`, and optional secret `HOMEBREW_TAP_TOKEN`). Nothing in the workflow files is renamed.
 
+**Publication is disabled in the template**: `publish = false` in Cargo.toml gates crates.io publishing, GitHub Release creation, and Homebrew tap updates (the workflows read it via `cargo metadata`; cargo itself also refuses `cargo publish`). The build → attest → SBOM → fail-closed-verify chain still runs as CI validation. Deleting that one line in a downstream project arms all three channels.
+
 **CI stage** (`ci-checks.yml`): fmt, clippy, test (Linux/macOS/Windows), doc build, cargo-deny, MSRV check (1.92), `all-checks-pass` gate. Runs in parallel with `ci-coverage.yml` (LCOV/Codecov), `ci-test-matrix.yml` (12-combo matrix, PR only), and `pin-check` (central `zircote/.github` workflow asserting every `uses:` is pinned to a full commit SHA).
 
 **Docker** (`release-docker.yml`): multi-platform build after CI passes. PR = build-only; push on main/tags. Pushed images flow through `docker-sign` (centralized `zircote/.github` `sign-and-attest.yml`, pinned by full SHA — under SLSA Build L3 the signing identity is the central workflow, not this repo) and `docker-verify` (fail-closed attestation verification).
