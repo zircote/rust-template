@@ -45,10 +45,13 @@ jobs:
   # -----------------------------------------------------------
   ci:
     name: CI Checks
+    # stage 'docker' includes ci so the docker -> sign -> verify
+    # chain is exercisable via dispatch (docker needs ci)
     if: >-
       github.event_name != 'workflow_dispatch'
       || inputs.stage == 'all'
       || inputs.stage == 'ci'
+      || inputs.stage == 'docker'
     uses: ./.github/workflows/ci-checks.yml
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -72,6 +75,19 @@ jobs:
       || inputs.stage == 'ci'))
     uses: ./.github/workflows/ci-test-matrix.yml
 
+  # Required check context: "pin-check / pin-check" — asserts every
+  # `uses:` reference is pinned to a full 40-char commit SHA.
+  pin-check:
+    if: >-
+      github.event_name != 'workflow_dispatch'
+      || inputs.stage == 'all'
+      || inputs.stage == 'ci'
+    permissions:
+      contents: read
+    # zircote/.github main (2026-06-11)
+    uses: >-
+      zircote/.github/.github/workflows/pin-check.yml@e8f0dbde068cc0701e443e7b8d57ae9917de7da3
+
   # -----------------------------------------------------------
   # Docker — after CI; PR = build-only, push on main/tags
   # -----------------------------------------------------------
@@ -88,11 +104,58 @@ jobs:
         ${{ github.event_name != 'pull_request' }}
 
   # -----------------------------------------------------------
-  # Release Stage — tags only
+  # Image attestation — centralized signer (SLSA Build L3
+  # isolation boundary), then a fail-closed verify gate
+  # -----------------------------------------------------------
+  docker-sign:
+    name: Sign and Attest Image
+    needs: [docker]
+    if: >-
+      github.event_name != 'pull_request'
+      && (github.event_name != 'workflow_dispatch'
+      || inputs.stage == 'all'
+      || inputs.stage == 'docker')
+    permissions:
+      id-token: write
+      attestations: write
+      packages: write
+      contents: read
+    # zircote/.github main (2026-06-11)
+    uses: >-
+      zircote/.github/.github/workflows/sign-and-attest.yml@e8f0dbde068cc0701e443e7b8d57ae9917de7da3
+    with:
+      image-name: ghcr.io/${{ github.repository }}
+      image-digest: ${{ needs.docker.outputs.image-digest }}
+
+  docker-verify:
+    name: Verify Image Attestations
+    needs: [docker, docker-sign]
+    if: >-
+      github.event_name != 'pull_request'
+      && (github.event_name != 'workflow_dispatch'
+      || inputs.stage == 'all'
+      || inputs.stage == 'docker')
+    permissions:
+      id-token: write
+      attestations: read
+      packages: read
+      contents: read
+    # zircote/.github main (2026-06-11)
+    uses: >-
+      zircote/.github/.github/workflows/verify-attestation.yml@e8f0dbde068cc0701e443e7b8d57ae9917de7da3
+    with:
+      image-ref: >-
+        ghcr.io/${{ github.repository }}@${{
+        needs.docker.outputs.image-digest }}
+      attestation-repo: ${{ github.repository }}
+
+  # -----------------------------------------------------------
+  # Release Stage — tags only; gated on the fail-closed verify
+  # so a tag publishes nothing unsigned
   # -----------------------------------------------------------
   release:
     name: Create Release
-    needs: [ci]
+    needs: [ci, docker-verify]
     if: >-
       (github.ref_type == 'tag'
       && startsWith(github.ref, 'refs/tags/v'))
@@ -164,10 +227,12 @@ jobs:
       tag: ${{ github.ref_name }}
 
   # -----------------------------------------------------------
-  # SLSA — inline jobs (cannot nest reusable workflow calls)
+  # SLSA — provenance for the released binaries via GitHub
+  # artifact attestations; attests the published assets, not a
+  # rebuild. Verify: gh attestation verify <file> --repo <o>/<r>
   # -----------------------------------------------------------
-  slsa-build:
-    name: SLSA Build and Hash
+  slsa-binaries:
+    name: Attest Release Binaries
     needs: [release]
     if: >-
       (github.ref_type == 'tag'
@@ -176,48 +241,26 @@ jobs:
       && (inputs.stage == 'all'
       || inputs.stage == 'slsa'))
     runs-on: ubuntu-latest
-    outputs:
-      hashes: ${{ steps.hash.outputs.hashes }}
-    steps:
-      - name: Checkout code
-        # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-
-      - name: Setup Rust
-        # master
-        uses: >-
-          dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
-        with:
-          toolchain: stable
-
-      - name: Build release binary
-        run: cargo build --release
-
-      - name: Generate subject hashes
-        id: hash
-        run: |
-          set -euo pipefail
-          HASHES=$(sha256sum \
-            target/release/rust_template \
-            | base64 -w0)
-          echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
-
-  slsa-provenance:
-    name: SLSA Provenance
-    needs: [slsa-build]
-    if: >-
-      (github.ref_type == 'tag'
-      && startsWith(github.ref, 'refs/tags/v'))
-      || (github.event_name == 'workflow_dispatch'
-      && (inputs.stage == 'all'
-      || inputs.stage == 'slsa'))
     permissions:
-      actions: read
+      contents: read
       id-token: write
-      contents: write
-    uses: >-
-      slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    with:
-      base64-subjects: >-
-        ${{ needs.slsa-build.outputs.hashes }}
-      upload-assets: true
+      attestations: write
+    steps:
+      - name: Download release binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release download "$TAG" \
+            --repo "$REPO" \
+            --pattern 'rust_template-*' \
+            --dir assets
+          rm -f assets/*.sig
+
+      - name: Attest build provenance
+        # v4.1.0
+        uses: >-
+          actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32
+        with:
+          subject-path: assets/*

@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Checkout homebrew tap
         # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           repository: >-
             ${{ github.repository_owner }}/homebrew-tap
@@ -101,10 +101,14 @@ jobs:
   snap:
     name: Build Snap Package
     runs-on: ubuntu-latest
+    env:
+      # The secrets context is not available in step `if:` expressions;
+      # expose the token via env so the publish step can gate on it.
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
     steps:
       - name: Checkout code
         # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Build snap
         # v1.3.0
@@ -130,13 +134,10 @@ jobs:
           gh release upload "$TAG" "$SNAP" --clobber
 
       - name: Publish to Snap Store
-        if: secrets.SNAPCRAFT_TOKEN != ''
+        if: env.SNAPCRAFT_STORE_CREDENTIALS != ''
         # v1.2.0
         uses: >-
           snapcore/action-publish@2f62f3ca778de25a88f1e29edb6ec4e763e53eef
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: >-
-            ${{ secrets.SNAPCRAFT_TOKEN }}
         with:
           snap: ${{ steps.build.outputs.snap }}
           release: stable
@@ -147,7 +148,7 @@ jobs:
     steps:
       - name: Checkout code
         # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Setup Rust
         # master
@@ -202,12 +203,12 @@ jobs:
     steps:
       - name: Checkout code
         # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Install cargo-deb
         # v2.67.25
         uses: >-
-          taiki-e/install-action@d9be7d8cda89035c9c843f78bd44d4f72d8403d4
+          taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154
         with:
           tool: cargo-deb@2.7.0
 
@@ -249,12 +250,12 @@ jobs:
     steps:
       - name: Checkout code
         # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Install cargo-generate-rpm
         # v2.67.25
         uses: >-
-          taiki-e/install-action@d9be7d8cda89035c9c843f78bd44d4f72d8403d4
+          taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154
         with:
           tool: cargo-generate-rpm@0.15.1
 

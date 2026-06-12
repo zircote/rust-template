@@ -31,7 +31,7 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           fetch-depth: 0
 
@@ -99,9 +99,16 @@ jobs:
             ARGS+=(-f "sha=${SHA}")
           fi
 
-          gh api "$API_PATH" \
-            --method PUT "${ARGS[@]}"
-          echo "Changelog updated via GitHub API"
+          # main carries a ruleset requiring status checks; the
+          # GITHUB_TOKEN bot cannot bypass it, so a rejected push
+          # must not fail the release — the release body already
+          # carries the changelog content.
+          if gh api "$API_PATH" \
+            --method PUT "${ARGS[@]}"; then
+            echo "Changelog updated via GitHub API"
+          else
+            echo "::warning title=CHANGELOG.md not committed::Push to main was rejected (ruleset requires status checks). Release notes are unaffected. Update CHANGELOG.md via a PR or add a ruleset bypass actor."
+          fi
 
   build-binaries:
     name: Build ${{ matrix.target }}
@@ -134,7 +141,7 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Install Rust toolchain
         # master

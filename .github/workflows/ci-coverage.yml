@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Install Rust toolchain
         # master
@@ -33,7 +33,7 @@ jobs:
       - name: Install cargo-llvm-cov
         # v2.67.25
         uses: >-
-          taiki-e/install-action@d9be7d8cda89035c9c843f78bd44d4f72d8403d4
+          taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154
         with:
           tool: cargo-llvm-cov@0.6.14
 
@@ -63,10 +63,12 @@ jobs:
       - name: Parse coverage percentage
         id: coverage
         run: |
-          COVERAGE=$(cargo llvm-cov --all-features \
-            --workspace --summary-only \
-            | grep -oP 'TOTAL\s+\d+\.\d+%' \
-            | grep -oP '\d+\.\d+' || echo "0")
+          # Parse the JSON report generated above; the summary-table
+          # TOTAL row puts an integer region count first, so a
+          # 'TOTAL <float>%' grep never matches and reported 0%.
+          COVERAGE=$(jq -r \
+            '.data[0].totals.lines.percent * 100 | round / 100' \
+            coverage.json || echo "0")
           echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
           echo "Coverage: ${COVERAGE}%"
 
@@ -92,7 +94,7 @@ jobs:
       - name: Upload coverage to Codecov
         # v5.5.2
         uses: >-
-          codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354
+          codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
         with:
           files: lcov.info
           fail_ci_if_error: false
