@@ -12,15 +12,16 @@ The project includes automated deployment workflows for:
 
 ## Prerequisites
 
-### Required Secrets
+### Required Secrets and Setup
 
-Configure these secrets in GitHub repository settings (Settings → Secrets and variables → Actions):
+1. **crates.io Trusted Publishing** - publishing uses OIDC, not a token, so no `CARGO_REGISTRY_TOKEN` secret exists
+   - One-time setup on crates.io: crate Settings → Trusted Publishing → add this GitHub repo with workflow `publish.yml` and environment `copilot`
 
-1. **CARGO_REGISTRY_TOKEN** - For crates.io publishing
-   - Generate at: https://crates.io/settings/tokens
-   - Scope: "publish-update"
+2. **HOMEBREW_TAP_TOKEN** (optional secret) - For Homebrew formula updates (`package-homebrew.yml`)
+   - Fine-grained PAT with write access to your `homebrew-tap` repository
+   - Override the tap repo name with the `HOMEBREW_TAP_REPO` repository variable (default: `homebrew-tap`)
 
-2. **GITHUB_TOKEN** - Automatically provided by GitHub Actions (no setup needed)
+3. **GITHUB_TOKEN** - Automatically provided by GitHub Actions (no setup needed)
 
 ### GitHub Packages
 
@@ -65,21 +66,23 @@ git push origin v0.2.0
 Pushing the tag automatically triggers:
 
 1. **Release Workflow** (`release.yml`)
-   - Builds binaries for all platforms
-   - Generates changelog from commits
-   - Creates GitHub release with artifacts
+   - Resolves the binary name and version from `cargo metadata`
+   - Builds binaries for all 5 platforms, named `rust_template-<version>-<platform>`
+   - Attaches SLSA build provenance and a CycloneDX SBOM attestation to every binary
+   - Verifies every attestation fail-closed, then creates the GitHub release with auto-generated notes and a checksums file
 
-2. **Changelog Workflow** (`changelog.yml`)
-   - Updates CHANGELOG.md
-   - Commits changes to main branch
-
-3. **Docker Workflow** (`docker.yml`)
-   - Builds multi-platform images
-   - Pushes to ghcr.io with version tag and 'latest'
-
-4. **Publish Workflow** (`publish.yml`)
+2. **Publish Workflow** (`publish.yml`)
    - Runs all pre-publish checks
-   - Publishes to crates.io
+   - Publishes to crates.io via Trusted Publishing (OIDC)
+   - Downloads the registry-served `.crate`, byte-compares it to the local package, and attests it
+
+3. **Pipeline Workflow** (`pipeline.yml`, container chain)
+   - Builds multi-platform images and pushes to ghcr.io with version tag and 'latest'
+   - Images are signed and attested by the centralized signer workflow, then verified fail-closed
+
+4. **Homebrew Workflow** (`package-homebrew.yml`)
+   - Runs after the Release workflow completes
+   - Regenerates the source formula in `{owner}/homebrew-tap`
 
 ## Deployment Targets
 
@@ -87,21 +90,26 @@ Pushing the tag automatically triggers:
 
 **Access:** https://github.com/zircote/rust-template/releases
 
-**Artifacts:**
-- `rust_template-linux-amd64` - Linux x86_64
-- `rust_template-linux-arm64` - Linux ARM64
-- `rust_template-macos-amd64` - macOS x86_64
-- `rust_template-macos-arm64` - macOS ARM64 (Apple Silicon)
-- `rust_template-windows-amd64.exe` - Windows x86_64
+**Artifacts** (version embedded in every name):
+- `rust_template-<version>-linux-amd64` - Linux x86_64
+- `rust_template-<version>-linux-arm64` - Linux ARM64
+- `rust_template-<version>-macos-amd64` - macOS x86_64
+- `rust_template-<version>-macos-arm64` - macOS ARM64 (Apple Silicon)
+- `rust_template-<version>-windows-amd64.exe` - Windows x86_64
+- `rust_template-<version>-sbom.cdx.json` - CycloneDX SBOM
+- `rust_template-<version>-checksums.txt` - SHA-256 checksums
 
-**Download Example:**
+**Download and Verify Example:**
 
 ```bash
 # Linux
-wget https://github.com/zircote/rust-template/releases/download/v0.1.0/rust_template-linux-amd64
-chmod +x rust_template-linux-amd64
-./rust_template-linux-amd64 --version
+wget https://github.com/zircote/rust-template/releases/download/v0.1.0/rust_template-0.1.0-linux-amd64
+gh attestation verify rust_template-0.1.0-linux-amd64 --repo zircote/rust-template
+chmod +x rust_template-0.1.0-linux-amd64
+./rust_template-0.1.0-linux-amd64 --version
 ```
+
+Full verification commands (provenance, SBOM, checksums, container images, crate) are in [SECURITY.md](../SECURITY.md#verifying-release-artifacts).
 
 ### Docker (GitHub Container Registry)
 
@@ -268,9 +276,9 @@ Dependabot automatically opens PRs for:
 
 ### Publish to crates.io Fails
 
-**Token Issue:**
-- Verify CARGO_REGISTRY_TOKEN secret is set
-- Token scope must include "publish-update"
+**Trusted Publishing Issue:**
+- "No Trusted Publishing config found": complete the one-time setup on crates.io (crate Settings → Trusted Publishing → workflow `publish.yml`, environment `copilot`)
+- No registry token is used; do not set `CARGO_REGISTRY_TOKEN`
 
 **Pre-publish Checks:**
 - All tests must pass

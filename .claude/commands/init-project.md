@@ -54,14 +54,15 @@ Ask these questions (use AskUserQuestion with up to 4 questions):
 Ask these questions:
 
 1. **Project type**: Library-only or Library + Binary?
-   - Library-only: removes `[[bin]]` from Cargo.toml, removes `crates/main.rs`, removes Docker/Snap configs
+   - Library-only: removes `[[bin]]` from Cargo.toml, removes `crates/main.rs`, removes Docker and Homebrew configs
    - Library + Binary: keeps both, binary name matches crate name
 
 2. **Distribution channels** (multi-select, only if Library + Binary):
-   - Docker (Dockerfile, `.dockerignore`, release-docker workflows)
-   - Snap (`snap/snapcraft.yaml`, release-packages Snap job)
-   - Homebrew (release-packages Homebrew job)
+   - Docker (Dockerfile, `.dockerignore`, the docker -> sign -> verify chain in `pipeline.yml`)
+   - Homebrew (`.github/workflows/package-homebrew.yml`; requires a `{OWNER}/homebrew-tap` repo and a `HOMEBREW_TAP_TOKEN` secret; tap repo name overridable via the `HOMEBREW_TAP_REPO` repository variable)
    - None of the above (remove all distribution packaging)
+
+   Note: crates.io publishing (`publish.yml`) and attested GitHub Releases (`release.yml`) are always kept — they resolve all project specificity from `cargo metadata` at runtime.
 
 ### Round 3: Optional Metadata
 
@@ -124,7 +125,6 @@ From the interview answers, compute:
 - `CATEGORIES`: array of categories
 - `IS_BINARY`: whether to include binary target
 - `DIST_DOCKER`: whether to keep Docker
-- `DIST_SNAP`: whether to keep Snap
 - `DIST_HOMEBREW`: whether to keep Homebrew
 
 ---
@@ -167,7 +167,9 @@ find . -type f \
 
 ### Workflow Files
 
-Unlike `template-init.yml` which skips `.github/workflows/`, you MUST also process workflow files. They contain references to binary names, Docker image names, and Homebrew formulas that need updating.
+The release workflows (`release.yml`, `publish.yml`, `package-homebrew.yml`) are **var-driven**: they resolve the crate name, binary name, version, description, and license from `cargo metadata` at runtime, and owner/repo from the GitHub context — they contain nothing project-specific to rename. Other workflow files (e.g. `nightly.yml`, `docs-deploy.yml`) still contain template names, so unlike `template-init.yml` which skips `.github/workflows/`, you MUST process workflow files too; the global rename is a safe no-op on the var-driven ones.
+
+**Caution**: `pipeline.yml` references centralized reusable workflows (`pin-check.yml`, `sign-and-attest.yml`, `verify-attestation.yml`) in the `zircote/.github` repository. The global rename points these at `{OWNER}/.github` — the new owner must host those reusable workflows (see the `attested-delivery` skill) or the container sign/verify chain will fail. Flag this in the summary.
 
 ---
 
@@ -427,16 +429,17 @@ rm Dockerfile .dockerignore
 ```
 Also remove/comment Docker-related workflow references if they exist.
 
-If **Snap not selected**:
-```bash
-rm -rf snap/
-```
-
 If **Homebrew not selected**:
-The Homebrew formula is generated in the release-packages workflow. Note this in the summary but don't remove workflow jobs (they're conditional).
+```bash
+rm .github/workflows/package-homebrew.yml
+```
+The formula is generated at release time from Cargo.toml metadata — there is no formula file in this repo to remove.
+
+If **Homebrew selected**:
+Note in the summary that the user must create the `{OWNER}/homebrew-tap` repository (or set the `HOMEBREW_TAP_REPO` variable) and add a `HOMEBREW_TAP_TOKEN` secret with write access to it.
 
 If **library-only** (no binary):
-- Remove Dockerfile, .dockerignore, snap/ (all distribution is binary-specific)
+- Remove Dockerfile, .dockerignore, and `.github/workflows/package-homebrew.yml` (all distribution is binary-specific)
 - Remove `crates/main.rs`
 
 ### Update CODEOWNERS (if it exists)
@@ -512,7 +515,7 @@ Print a summary of everything that was done:
 - License: {LICENSE}
 - MSRV: {MSRV}
 - Type: {Library / Library + Binary}
-- Distribution: {Docker, Snap, Homebrew / None}
+- Distribution: {Docker, Homebrew / None}
 
 ### Changes Made
 - Renamed all template references ({N} files processed)
@@ -523,7 +526,7 @@ Print a summary of everything that was done:
 - Removed docs/template/ directory
 - Removed template-init.yml workflow
 - {Removed Dockerfile / Kept Dockerfile}
-- {Removed snap/ / Kept snap/}
+- {Removed package-homebrew.yml / Kept Homebrew packaging}
 - Reset CHANGELOG.md
 - Updated LICENSE copyright
 - Updated CODEOWNERS (if present)
@@ -533,8 +536,10 @@ Print a summary of everything that was done:
 ### Next Steps
 1. Review the changes: `git diff`
 2. Commit: `git add -A && git commit -m "chore: initialize project from rust-template"`
-3. Start building your project in `crates/lib.rs`
-4. Add your first feature or implement from a spec
+3. Before your first release, set up crates.io Trusted Publishing: crate Settings -> Trusted Publishing -> add this repo with workflow `publish.yml` and environment `copilot` (no CARGO_REGISTRY_TOKEN secret is used)
+4. {If Homebrew kept: Create the {OWNER}/homebrew-tap repository and add the HOMEBREW_TAP_TOKEN secret}
+5. Start building your project in `crates/lib.rs`
+6. Add your first feature or implement from a spec
 ```
 
 ---

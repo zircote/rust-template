@@ -2,77 +2,70 @@
 
 ## Overview
 
-Cryptographically sign release artifacts and generate SLSA provenance for supply chain security.
+Every release artifact carries cryptographic attestations, and nothing publishes unverified: a fail-closed verification job runs **before** the GitHub Release exists.
 
 **Workflows:**
-- `.github/workflows/release-sign.yml` - Cosign signatures and checksums
-- `.github/workflows/pipeline.yml` - SLSA Level 3 provenance (via `slsa-build`/`slsa-provenance` jobs)
+- `.github/workflows/release.yml` - SLSA build provenance and CycloneDX SBOM attestations on every release binary, verified fail-closed before the release is published
+- `.github/workflows/publish.yml` - provenance attestation on the `.crate` archive that crates.io actually serves
+- `.github/workflows/pipeline.yml` - container image signing and attestation via the centralized `zircote/.github` signer workflow (SLSA Build L3), then fail-closed verification
 
-## Why Sign Releases?
+The canonical verification commands live in [SECURITY.md](../../SECURITY.md#verifying-release-artifacts). This document explains the architecture and expands on each artifact type.
 
-- **Authenticity**: Verify artifacts come from you
+## Why Attest Releases?
+
+- **Authenticity**: Verify artifacts were built by this repository's workflows
 - **Integrity**: Detect tampering or corruption
-- **Non-repudiation**: Prove you created the release
+- **Non-repudiation**: The attestation binds the artifact to the exact commit, workflow, and run
 - **Compliance**: Meet supply chain security requirements
 
-## Cosign Signatures
+## GitHub Artifact Attestations (Release Binaries)
 
 ### How It Works
 
-1. **Release published** - Workflow triggers
-2. **Download assets** - Get all release files
-3. **Sign with Cosign** - Keyless signing via Sigstore
-4. **Upload signatures** - Attach `.sig` files to release
-5. **Generate checksums** - SHA256/SHA512 sums
-6. **Sign checksums** - Verify integrity chain
+1. **Tag pushed** - `release.yml` triggers; binary name and version are resolved from `cargo metadata`
+2. **Build binaries** - 5 platform targets, named `{bin}-{version}-{platform}` (e.g. `rust_template-0.1.0-linux-amd64`)
+3. **Attest provenance** - `actions/attest-build-provenance` attaches SLSA build provenance to each binary at build time
+4. **Generate + attest SBOM** - a CycloneDX SBOM is generated (`anchore/sbom-action`) and bound to every binary via `actions/attest-sbom`
+5. **Verify fail-closed** - a dedicated job runs `gh attestation verify` (provenance and SBOM) against every artifact; any failure blocks the release
+6. **Publish release** - binaries, the SBOM, and a single `{bin}-{version}-checksums.txt` file are attached to the GitHub Release
 
-### Verifying Signatures
+A tag publishes nothing unattested. Test and `cargo-audit` gates also run in the same workflow, because tags are not guaranteed to point at CI-green commits.
 
-**Install Cosign:**
+### Verifying Release Binaries
+
+Prerequisite: an authenticated `gh` CLI.
+
 ```bash
-# Homebrew
-brew install cosign
+# Download the release assets
+gh release download v0.1.0 --repo USER/REPO
 
-# Download binary
-wget https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
-chmod +x cosign-linux-amd64
-sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+# Verify SLSA build provenance
+gh attestation verify rust_template-0.1.0-linux-amd64 --repo USER/REPO
+
+# Verify the SBOM attestation
+gh attestation verify rust_template-0.1.0-linux-amd64 --repo USER/REPO \
+  --predicate-type https://cyclonedx.org/bom
 ```
 
-**Verify Asset:**
-```bash
-# Download release and signature
-wget https://github.com/USER/REPO/releases/download/v0.1.0/rust-template
-wget https://github.com/USER/REPO/releases/download/v0.1.0/rust-template.sig
+### Verifying Checksums
 
-# Verify signature
-cosign verify-blob \
-  --signature rust-template.sig \
-  --certificate-identity-regexp=".*" \
-  --certificate-oidc-issuer-regexp=".*" \
-  rust-template
+```bash
+shasum -a 256 -c rust_template-0.1.0-checksums.txt
 ```
 
-**Verify Checksums:**
+### Verifying the Published Crate
+
+`publish.yml` downloads the `.crate` that crates.io serves, byte-compares it against the locally packaged archive (a mismatch fails the workflow), and attests it — the attestation covers the registry bytes, not a local rebuild:
+
 ```bash
-# Download checksums
-wget https://github.com/USER/REPO/releases/download/v0.1.0/SHA256SUMS
-wget https://github.com/USER/REPO/releases/download/v0.1.0/SHA256SUMS.sig
-
-# Verify checksum signature
-cosign verify-blob \
-  --signature SHA256SUMS.sig \
-  --certificate-identity-regexp=".*" \
-  --certificate-oidc-issuer-regexp=".*" \
-  SHA256SUMS
-
-# Verify file against checksum
-sha256sum --check SHA256SUMS
+curl -fsSL -A 'release-check' \
+  -O https://static.crates.io/crates/rust_template/rust_template-0.1.0.crate
+gh attestation verify rust_template-0.1.0.crate --repo USER/REPO
 ```
 
 ### Keyless Signing
 
-Cosign uses **keyless signing** via Sigstore:
+Attestations are signed keyless via Sigstore:
 - No private keys to manage
 - Uses OIDC identity (GitHub Actions)
 - Transparency log (Rekor) for auditability
@@ -83,6 +76,29 @@ Cosign uses **keyless signing** via Sigstore:
 - No key compromise risk
 - Publicly verifiable
 - Auditable via transparency log
+
+## Container Image Attestations
+
+Container images are **not** signed by this repository. They are signed and attested by the centralized signer workflow `zircote/.github/.github/workflows/sign-and-attest.yml`, then verified fail-closed by `docker-verify` in `pipeline.yml`. Under SLSA Build L3 the signing identity is the central workflow, not this repo — so verification must assert both where the build ran (`--repo`) and who signed (`--signer-workflow`):
+
+```bash
+# Resolve the digest for a tag
+DIGEST=$(gh api 'users/USER/packages/container/REPO/versions?per_page=20' \
+  --jq '[.[] | select((.metadata.container.tags // []) | index("<tag>"))][0].name')
+
+# SLSA provenance — --repo alone fails by design
+gh attestation verify "oci://ghcr.io/USER/REPO@${DIGEST}" \
+  --repo USER/REPO \
+  --signer-workflow zircote/.github/.github/workflows/sign-and-attest.yml \
+  --predicate-type https://slsa.dev/provenance/v1
+
+# Keyless signature
+cosign verify "ghcr.io/USER/REPO@${DIGEST}" \
+  --certificate-identity-regexp '^https://github.com/zircote/\.github/\.github/workflows/sign-and-attest\.yml@.*$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+The central signer also attaches SBOM and vulnerability-report attestations; see [SECURITY.md](../../SECURITY.md#verifying-release-artifacts) for those commands.
 
 ## SLSA Provenance
 
@@ -96,119 +112,54 @@ Cosign uses **keyless signing** via Sigstore:
 - **SLSA 3**: Hardened builds (non-falsifiable provenance)
 - **SLSA 4**: Hermetic, reproducible builds
 
-### Generate Provenance
+### Who Signs What
 
-The workflow automatically generates **SLSA Level 3** provenance:
+| Artifact | Attested by | Verify with |
+|---|---|---|
+| Release binaries + SBOM | This repo's `release.yml` | `gh attestation verify <file> --repo USER/REPO` |
+| Published `.crate` | This repo's `publish.yml` | `gh attestation verify <crate> --repo USER/REPO` |
+| Container images | Central `zircote/.github` signer (SLSA Build L3) | `gh attestation verify oci://... --repo USER/REPO --signer-workflow ...` |
 
-```json
-{
-  "_type": "https://in-toto.io/Statement/v0.1",
-  "subject": [
-    {
-      "name": "rust-template",
-      "digest": {
-        "sha256": "abc123..."
-      }
-    }
-  ],
-  "predicateType": "https://slsa.dev/provenance/v0.2",
-  "predicate": {
-    "builder": {
-      "id": "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0"
-    },
-    "buildType": "https://github.com/slsa-framework/slsa-github-generator/generic@v1",
-    "invocation": {
-      "configSource": {
-        "uri": "git+https://github.com/USER/REPO@refs/tags/v0.1.0",
-        "digest": {
-          "sha1": "def456..."
-        }
-      }
-    },
-    "metadata": {
-      "buildStartedOn": "2026-01-01T00:00:00Z",
-      "buildFinishedOn": "2026-01-01T00:05:00Z"
-    },
-    "materials": [
-      {
-        "uri": "git+https://github.com/USER/REPO@refs/tags/v0.1.0",
-        "digest": {
-          "sha1": "def456..."
-        }
-      }
-    ]
-  }
-}
-```
+No `--signer-workflow` flag is needed for binaries and crates — they are attested by this repository's own workflows.
 
-### Verify Provenance
+### Inspecting Provenance
 
-**Install SLSA Verifier:**
 ```bash
-wget https://github.com/slsa-framework/slsa-verifier/releases/download/v2.5.1/slsa-verifier-linux-amd64
-chmod +x slsa-verifier-linux-amd64
-sudo mv slsa-verifier-linux-amd64 /usr/local/bin/slsa-verifier
+# Print the full verification result, including the provenance statement
+gh attestation verify rust_template-0.1.0-linux-amd64 --repo USER/REPO \
+  --format json | jq '.[0].verificationResult.statement'
+
+# Extract specific fields
+gh attestation verify rust_template-0.1.0-linux-amd64 --repo USER/REPO \
+  --format json | jq '.[0].verificationResult.statement.predicate.buildDefinition'
 ```
 
-**Verify Artifact:**
-```bash
-# Download binary and provenance
-wget https://github.com/USER/REPO/releases/download/v0.1.0/rust-template
-wget https://github.com/USER/REPO/releases/download/v0.1.0/rust-template.intoto.jsonl
-
-# Verify provenance
-slsa-verifier verify-artifact \
-  --provenance-path rust-template.intoto.jsonl \
-  --source-uri github.com/USER/REPO \
-  rust-template
-```
-
-**Output:**
-```text
-✓ Verified SLSA provenance
-  Source: github.com/USER/REPO
-  Builder: https://github.com/slsa-framework/slsa-github-generator
-  Build Level: SLSA 3
-```
-
-## Integration with Package Managers
-
-### Homebrew
-
-```ruby
-def install
-  system "cargo", "install", *std_cargo_args
-
-  # Download and verify signature
-  signature_url = "#{url}.sig"
-  resource("signature").stage do
-    system "cosign", "verify-blob",
-           "--signature", "rust-template.sig",
-           "--certificate-identity-regexp", ".*",
-           "--certificate-oidc-issuer-regexp", ".*",
-           bin/"rust-template"
-  end
-end
-```
+## Integration Examples
 
 ### Docker
 
+Verify a binary before adding it to an image:
+
 ```dockerfile
-# Verify binary before adding to image
-RUN wget https://github.com/USER/REPO/releases/download/v0.1.0/rust-template && \
-    wget https://github.com/USER/REPO/releases/download/v0.1.0/rust-template.sig && \
-    cosign verify-blob \
-      --signature rust-template.sig \
-      --certificate-identity-regexp=".*" \
-      --certificate-oidc-issuer-regexp=".*" \
-      rust-template
+# Verify provenance before adding to image (gh CLI in the build stage)
+RUN gh release download v0.1.0 --repo USER/REPO \
+      --pattern 'rust_template-0.1.0-linux-amd64' && \
+    gh attestation verify rust_template-0.1.0-linux-amd64 --repo USER/REPO
+```
+
+### CI Consumers
+
+Any pipeline consuming release binaries should verify before use:
+
+```bash
+gh attestation verify "$ARTIFACT" --repo USER/REPO || exit 1
 ```
 
 ## Advanced Configuration
 
 ### Custom Signing Keys
 
-For organizations with existing PKI:
+For organizations with existing PKI, GPG signatures can be layered on top of attestations:
 
 ```yaml
 - name: Import GPG key
@@ -226,125 +177,81 @@ For organizations with existing PKI:
 gpg --verify rust-template.asc rust-template
 ```
 
-### Multiple Signatures
-
-```yaml
-- name: Sign with multiple methods
-  run: |
-    # Cosign (keyless)
-    cosign sign-blob --yes rust-template > rust-template.cosign.sig
-
-    # GPG (traditional)
-    gpg --detach-sign --armor rust-template
-
-    # Minisign (simple)
-    minisign -Sm rust-template
-```
-
 ## Security Best Practices
 
 ### 1. Minimize Attack Surface
 
-- **Use official actions** with commit SHA pinning
-- **Limit permissions** to minimum required
+- **Use official actions** with commit SHA pinning (enforced by the `pin-check` CI gate)
+- **Limit permissions** to minimum required (`id-token: write` and `attestations: write` only on jobs that attest)
 - **Avoid secrets** in logs or artifacts
 
 ### 2. Verify Everything
 
-- **Verify dependencies** before building
-- **Verify build environment** is expected
-- **Verify artifacts** match source
+- **Verify dependencies** before building (`cargo-deny`, `cargo-audit` gates)
+- **Verify artifacts** before they publish — the release workflow's verify job is fail-closed
+- **Verify on the consuming side** — in-pipeline success is necessary, not sufficient
 
 ### 3. Audit Trail
 
-- **Enable Rekor** transparency log
+- **Rekor** transparency log records every attestation signature
 - **Archive provenance** long-term
 - **Monitor certificates** for unexpected issuance
 
 ### 4. User Education
 
-- **Document verification** in README
+- **Document verification** in SECURITY.md (canonical commands)
 - **Provide examples** of verification
-- **Link to tools** (cosign, slsa-verifier)
+- **Link to tools** (`gh attestation`, cosign for images)
 
 ## Troubleshooting
 
-### Cosign Verification Fails
+### `gh attestation verify` Fails
 
 ```bash
-# Check certificate details
-cosign verify-blob \
-  --signature rust-template.sig \
-  --certificate-identity-regexp=".*" \
-  --certificate-oidc-issuer-regexp=".*" \
-  --debug \
-  rust-template
+# Inspect what attestations exist for the artifact
+gh attestation verify rust_template-0.1.0-linux-amd64 --repo USER/REPO --format json
 ```
 
 **Common issues:**
-- Expired certificate (valid for 10 minutes during signing)
-- Wrong issuer (should be `https://token.actions.githubusercontent.com`)
-- Identity mismatch (should match workflow identity)
+- Wrong `--repo` (must be the repository whose workflow attested the artifact)
+- Missing `--signer-workflow` for container images (they are signed by the central workflow; `--repo` alone fails by design)
+- Wrong `--predicate-type` (SBOM attestations need `https://cyclonedx.org/bom`; image provenance needs `https://slsa.dev/provenance/v1`)
+- Artifact was modified after download (checksum it against `{bin}-{version}-checksums.txt`)
+- Unauthenticated `gh` CLI
 
-### SLSA Verification Fails
+### Release Was Not Published
 
-```bash
-# Verbose verification
-slsa-verifier verify-artifact \
-  --provenance-path rust-template.intoto.jsonl \
-  --source-uri github.com/USER/REPO \
-  --print-provenance \
-  rust-template
-```
-
-**Common issues:**
-- Source URI mismatch
-- Builder version mismatch
-- Artifact hash mismatch
+If the `verify` job fails, the release is intentionally never created — that is the fail-closed design working. Check the `Verify Attestations` job logs, fix the cause, and re-release with a new tag. Never re-run `release.yml` against an existing tag: builds are not reproducible and re-publishing would overwrite released assets with different bytes.
 
 ## Monitoring & Compliance
 
 ### Rekor Transparency Log
 
-All Cosign signatures logged to Rekor:
-
-```bash
-# Search Rekor for signatures
-rekor-cli search --artifact rust-template
-
-# Get entry details
-rekor-cli get --uuid <uuid>
-```
+All Sigstore signatures (attestations and image signatures) are logged to Rekor:
 
 **URL:** https://search.sigstore.dev/
-
-### Provenance Inspection
-
-```bash
-# Extract provenance fields
-cat rust-template.intoto.jsonl | jq '.predicate.builder.id'
-cat rust-template.intoto.jsonl | jq '.predicate.metadata.buildStartedOn'
-cat rust-template.intoto.jsonl | jq '.predicate.materials[0].uri'
-```
 
 ### Compliance Reports
 
 Generate reports for audits:
 
 ```bash
-# List all signed releases
-gh release list --repo USER/REPO | while read line; do
-  tag=$(echo $line | awk '{print $1}')
+# Verify every asset of every release
+gh release list --repo USER/REPO --json tagName -q '.[].tagName' | while read -r tag; do
   echo "Release: $tag"
-  gh release view $tag --json assets | jq -r '.assets[].name' | grep '\.sig$'
+  gh release download "$tag" --repo USER/REPO --dir "audit/$tag"
+  for f in audit/$tag/*; do
+    case "$f" in *checksums.txt) continue ;; esac
+    gh attestation verify "$f" --repo USER/REPO
+  done
 done
 ```
 
 ## Links
 
-- [Sigstore Cosign](https://github.com/sigstore/cosign)
+- [GitHub Artifact Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations)
 - [SLSA Framework](https://slsa.dev/)
-- [SLSA GitHub Generator](https://github.com/slsa-framework/slsa-github-generator)
-- [SLSA Verifier](https://github.com/slsa-framework/slsa-verifier)
+- [Sigstore](https://www.sigstore.dev/)
 - [Rekor Transparency Log](https://github.com/sigstore/rekor)
+- [CycloneDX](https://cyclonedx.org/)
 - [Supply Chain Security Guide](https://slsa.dev/spec/v1.0/)

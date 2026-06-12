@@ -183,8 +183,10 @@ Most workflows use only the automatic `GITHUB_TOKEN`. Optional workflows require
 | Secret | Required for | How to obtain |
 |---|---|---|
 | `GITHUB_TOKEN` | All workflows (CI, releases, etc.) | Automatic -- provided by GitHub Actions |
-| `CARGO_REGISTRY_TOKEN` | Publishing to crates.io (`publish.yml`) | [crates.io account settings](https://crates.io/settings/tokens) |
+| `HOMEBREW_TAP_TOKEN` | Updating your Homebrew tap formula (`package-homebrew.yml`) | Fine-grained PAT with write access to your `homebrew-tap` repository |
 | `CODECOV_TOKEN` | Uploading coverage reports (`ci.yml`) | [Codecov dashboard](https://app.codecov.io/) after linking your repo |
+
+> Publishing to crates.io (`publish.yml`) needs **no secret** -- it uses crates.io Trusted Publishing (OIDC). One-time setup: on crates.io, open your crate's **Settings > Trusted Publishing** and add this GitHub repo with workflow `publish.yml` and environment `copilot`.
 
 > Workflows that reference missing secrets will either skip gracefully or fail with a clear error. You only need to configure a secret when you are ready to use the corresponding feature.
 
@@ -192,8 +194,9 @@ Most workflows use only the automatic `GITHUB_TOKEN`. Optional workflows require
 
 ## 8. Enable Commit Signing
 
-The template's release workflows already sign artifacts with Sigstore
-Cosign and generate SLSA Level 3 provenance. To extend signing to
+The template's release workflow already attaches SLSA build provenance
+and CycloneDX SBOM attestations to every release artifact, and container
+images are signed by a centralized signer workflow. To extend signing to
 individual commits:
 
 **Enable in branch protection:**
