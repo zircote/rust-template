@@ -24,8 +24,39 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # `publish = false` in Cargo.toml (the template's shipped state)
+  # disables this entire workflow; delete that line in a real project
+  # to arm crates.io publishing.
+  guard:
+    name: Publish Gate
+    runs-on: ubuntu-latest
+    outputs:
+      publishable: ${{ steps.gate.outputs.publishable }}
+    steps:
+      - name: Checkout repository
+        # v6.0.3
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - name: Install Rust toolchain
+        # master
+        uses: >-
+          dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+
+      - name: Read package.publish from Cargo.toml
+        id: gate
+        run: |
+          PUBLISHABLE=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r \
+            'if .packages[0].publish == [] then "false" else "true" end')
+          echo "publishable=${PUBLISHABLE}" >> "$GITHUB_OUTPUT"
+          echo "publishable: ${PUBLISHABLE}"
+
   publish:
     name: Publish to crates.io
+    needs: [guard]
+    if: needs.guard.outputs.publishable == 'true'
     runs-on: ubuntu-latest
     environment: copilot
     permissions:

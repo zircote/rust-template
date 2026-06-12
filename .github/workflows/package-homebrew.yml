@@ -27,8 +27,10 @@ name: Homebrew Package
         type: boolean
         default: true
 
+# The tap push uses HOMEBREW_TAP_TOKEN (a PAT), not GITHUB_TOKEN —
+# this workflow only ever reads the source repository.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   homebrew:
@@ -102,6 +104,12 @@ jobs:
             <<< "$META")
           DESC=$(jq -r '.packages[0].description // ""' <<< "$META")
           LICENSE=$(jq -r '.packages[0].license // "MIT"' <<< "$META")
+          # `publish = false` in Cargo.toml AT THE RELEASED TAG (the
+          # template's shipped state) disables the tap update; delete
+          # that line in a real project to arm this channel.
+          PUBLISHABLE=$(jq -r \
+            'if .packages[0].publish == [] then "false" else "true" end' \
+            <<< "$META")
           # Formula file name: kebab-case of the binary name.
           FORMULA=$(echo "$BIN" | tr '_' '-')
           # Ruby class name: CamelCase of the formula name.
@@ -114,12 +122,16 @@ jobs:
             echo "license=${LICENSE}"
             echo "formula=${FORMULA}"
             echo "class=${CLASS}"
+            echo "publishable=${PUBLISHABLE}"
           } >> "$GITHUB_OUTPUT"
+          echo "publishable: ${PUBLISHABLE}"
 
       # Dry-runs never touch the tap repo, so previewing a formula
       # requires neither HOMEBREW_TAP_TOKEN nor an existing tap.
       - name: Checkout homebrew tap
-        if: github.event.inputs.dry_run != 'true'
+        if: >-
+          steps.meta.outputs.publishable == 'true'
+          && github.event.inputs.dry_run != 'true'
         # v6.0.3
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
@@ -130,6 +142,7 @@ jobs:
           path: homebrew-tap
 
       - name: Generate source formula
+        if: steps.meta.outputs.publishable == 'true'
         env:
           VERSION: ${{ steps.release.outputs.version }}
           REPO: ${{ github.repository }}
@@ -166,7 +179,9 @@ jobs:
           FORMULA_EOF
 
       - name: Commit and push formula
-        if: github.event.inputs.dry_run != 'true'
+        if: >-
+          steps.meta.outputs.publishable == 'true'
+          && github.event.inputs.dry_run != 'true'
         env:
           VERSION: ${{ steps.release.outputs.version }}
           FORMULA: ${{ steps.meta.outputs.formula }}
@@ -189,7 +204,9 @@ jobs:
           fi
 
       - name: Show formula (dry run)
-        if: github.event.inputs.dry_run == 'true'
+        if: >-
+          steps.meta.outputs.publishable == 'true'
+          && github.event.inputs.dry_run == 'true'
         env:
           FORMULA: ${{ steps.meta.outputs.formula }}
         run: |
