@@ -47,7 +47,7 @@ jobs:
       - name: Read package.publish from Cargo.toml
         id: gate
         run: |
-          PUBLISHABLE=$(cargo metadata --no-deps --format-version 1 \
+          PUBLISHABLE=$(cargo metadata --no-deps --locked --format-version 1 \
             | jq -r \
             'if .packages[0].publish == [] then "false" else "true" end')
           echo "publishable=${PUBLISHABLE}" >> "$GITHUB_OUTPUT"
@@ -87,7 +87,7 @@ jobs:
       - name: Resolve crate name
         id: crate-meta
         run: |
-          NAME=$(cargo metadata --no-deps --format-version 1 \
+          NAME=$(cargo metadata --no-deps --locked --format-version 1 \
             | jq -r '.packages[0].name')
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
 
@@ -97,7 +97,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 \
+          CARGO_VERSION=$(cargo metadata --no-deps --locked --format-version 1 \
             | jq -r '.packages[0].version')
           if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
             echo "::error::tag v${TAG_VERSION} does not match" \

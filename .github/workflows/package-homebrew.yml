@@ -98,7 +98,7 @@ jobs:
         working-directory: project
         run: |
           set -euo pipefail
-          META=$(cargo metadata --no-deps --format-version 1)
+          META=$(cargo metadata --no-deps --locked --format-version 1)
           BIN=$(jq -r \
             '[.packages[0].targets[] | select(.kind | index("bin"))][0].name' \
             <<< "$META")
