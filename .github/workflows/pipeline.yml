@@ -35,6 +35,42 @@ permissions:
 
 jobs:
   # -----------------------------------------------------------
+  # Gate — resolve template state from Cargo.toml `publish`.
+  # `publish = false` (template) reports `publish == []`, which
+  # disables the container build/sign/verify chain. Deleting that
+  # line in a downstream project arms it. Same switch that gates
+  # crates.io publishing, GitHub Releases, and Homebrew.
+  # -----------------------------------------------------------
+  gate:
+    name: Resolve Publish Gate
+    runs-on: ubuntu-latest
+    outputs:
+      publishable: ${{ steps.gate.outputs.publishable }}
+    steps:
+      - name: Checkout repository
+        # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - name: Install Rust toolchain
+        # master
+        uses: >-
+          dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+
+      - name: Resolve publish gate from Cargo.toml
+        id: gate
+        run: |
+          set -euo pipefail
+          META=$(cargo metadata --no-deps --locked --format-version 1)
+          # `publish = false` => `.publish == []` => template state.
+          PUBLISHABLE=$(jq -r \
+            'if .packages[0].publish == [] then "false" else "true" end' \
+            <<< "$META")
+          echo "publishable=${PUBLISHABLE}" >> "$GITHUB_OUTPUT"
+          echo "Resolved publishable: ${PUBLISHABLE}"
+
+  # -----------------------------------------------------------
   # CI Stage — runs on every push, PR, and tag
   # -----------------------------------------------------------
   ci:
@@ -87,11 +123,14 @@ jobs:
   # -----------------------------------------------------------
   docker:
     name: Docker
-    needs: [ci]
+    needs: [ci, gate]
+    # Container build is gated on template state: skipped while
+    # `publish = false` (template), armed once that line is deleted.
     if: >-
-      github.event_name != 'workflow_dispatch'
+      needs.gate.outputs.publishable == 'true'
+      && (github.event_name != 'workflow_dispatch'
       || inputs.stage == 'all'
-      || inputs.stage == 'docker'
+      || inputs.stage == 'docker')
     uses: ./.github/workflows/release-docker.yml
     with:
       push: >-
