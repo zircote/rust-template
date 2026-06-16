@@ -1,3 +1,6 @@
+---
+diataxis_type: how-to
+---
 # Deployment Guide
 
 This document provides comprehensive deployment instructions for the rust-template project.
@@ -109,7 +112,7 @@ chmod +x rust_template-0.1.0-linux-amd64
 ./rust_template-0.1.0-linux-amd64 --version
 ```
 
-Full verification commands (provenance, SBOM, checksums, container images, crate) are in [SECURITY.md](../SECURITY.md#verifying-release-artifacts).
+Full verification commands (provenance, SBOM, checksums, container images, crate) are in [SECURITY.md](../SECURITY.md#verifying-release-artifacts). For *why* releases are attested and how the attestation chain is structured, see [Signed Releases & SLSA Provenance](security/SIGNED-RELEASES.md).
 
 ### Docker (GitHub Container Registry)
 

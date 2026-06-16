@@ -1,100 +1,42 @@
+---
+diataxis_type: how-to
+---
 # Container Vulnerability Scanning with Trivy
 
-## Overview
+Automated Docker container vulnerability scanning using [Trivy](https://github.com/aquasecurity/trivy), with findings surfaced in the GitHub Security tab.
 
-Automated Docker container vulnerability scanning using [Trivy](https://github.com/aquasecurity/trivy).
+## Reference
 
-**Workflow:** `.github/workflows/container-scan.yml`  
-**Triggers:** Push, PR, Weekly schedule, Manual  
-**Integration:** GitHub Security tab (SARIF upload)
+Trivy runs via the central reusable `reusable-trivy.yml` (from `zircote/.github`), invoked from two callers:
 
-## How It Works
+| Field | Value |
+|---|---|
+| Filesystem scan | `quality-gates.yml` (job `trivy`) — IaC + license scan over the source tree, at merge time |
+| Image scan | `pipeline.yml` (job `gate-image`) — Trivy image scan, publish-gated (dormant in template state) |
+| Image attestation | `pipeline.yml` (job `attest-container-scan`) — binds the image scan verdict to the image digest as a `container-scan/v1` attestation |
+| Integration | GitHub Security tab (SARIF upload) |
 
-Scans Docker images for:
+### What it scans for
+
+Trivy scans Docker images for:
+
 - OS package vulnerabilities (CVEs)
-- Application dependencies vulnerabilities  
+- Application dependency vulnerabilities
 - Misconfigurations
 - Secrets in image layers
 
-**Severity Levels:**
-- CRITICAL
-- HIGH
-- MEDIUM
-- LOW
-- UNKNOWN
+Severity levels: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `UNKNOWN`.
 
-## Usage
+### CI pipeline stages
 
-### Local Scanning
+Two Trivy lanes run through the central reusable workflow:
 
-```bash
-# Install Trivy
-brew install trivy
-# or
-curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+1. **Filesystem (merge-time)** — `quality-gates.yml` scans the source tree (Dockerfile, manifests, licenses) and uploads SARIF to GitHub Security.
+2. **Image (publish-gated)** — once the container build is armed (`publish = false` deleted), `pipeline.yml`'s `gate-image` job runs a Trivy image scan against the built image digest. The `attest-container-scan` job then signs the scan result and binds it to the image digest as a `container-scan/v1` attestation.
 
-# Build and scan image
-docker build -t rust-template:local .
-trivy image rust-template:local
+Filesystem findings appear in **Security tab → Code scanning alerts**. Image scan findings become a signed `container-scan/v1` attestation on the image (verifiable with `gh attestation verify`).
 
-# Scan specific severity
-trivy image --severity HIGH,CRITICAL rust-template:local
-
-# Output formats
-trivy image --format json rust-template:local > scan.json
-trivy image --format sarif rust-template:local > scan.sarif
-```
-
-### CI Scanning
-
-The workflow automatically:
-1. Builds Docker image
-2. Scans for vulnerabilities
-3. Uploads SARIF to GitHub Security
-4. Generates human-readable report
-5. Uploads report as artifact
-
-**View Results:**
-- Security tab → Code scanning alerts
-- Actions tab → Artifacts → trivy-scan-report
-
-## Configuration
-
-### Severity Threshold
-
-Edit `.github/workflows/container-scan.yml`:
-
-```yaml
-- name: Run Trivy
-  with:
-    severity: CRITICAL,HIGH  # Only critical and high
-```
-
-### Ignore Unfixed
-
-Skip vulnerabilities without fixes:
-
-```yaml
-- name: Run Trivy
-  with:
-    ignore-unfixed: true
-```
-
-### Trivy Configuration File
-
-Create `.trivyignore`:
-
-```text
-# Ignore specific CVEs
-CVE-2021-12345
-
-# Ignore by package
-pkg:deb/debian/openssl@1.1.1
-```
-
-## Understanding Results
-
-### SARIF Output (GitHub Security)
+### SARIF output (GitHub Security)
 
 ```json
 {
@@ -117,7 +59,7 @@ pkg:deb/debian/openssl@1.1.1
 }
 ```
 
-### Table Output
+### Table output
 
 ```text
 Library      Vulnerability  Severity  Status  Installed  Fixed
@@ -125,81 +67,133 @@ Library      Vulnerability  Severity  Status  Installed  Fixed
 openssl      CVE-2021-12345 CRITICAL  fixed   1.1.1k     1.1.1l
 ```
 
-## Remediation
+### Scheduled scans
 
-### Update Base Image
-
-```dockerfile
-# Before
-FROM rust:1.92-slim
-
-# After (with digest for immutability)
-FROM rust:1.92-slim@sha256:abc123...
-```
-
-### Update Dependencies
-
-```bash
-# Update Cargo dependencies
-cargo update
-cargo audit
-
-# Rebuild image
-docker build -t rust-template:patched .
-trivy image rust-template:patched
-```
-
-### Accept Risk
-
-For false positives or accepted risks:
-
-```text
-# .trivyignore
-CVE-2021-12345  # Mitigated by network isolation
-```
-
-## Scheduled Scans
-
-Weekly scans run automatically:
+The filesystem gate in `quality-gates.yml` re-runs weekly on a schedule, so a previously clean tree is re-checked against newly disclosed CVEs:
 
 ```yaml
 schedule:
-  - cron: "0 0 * * 0"  # Every Sunday at midnight
+  - cron: "0 6 * * 1"  # Every Monday at 06:00 UTC
 ```
 
-## Troubleshooting
+The image scan in `pipeline.yml` is event-driven (on push/tag once publishing is armed), not scheduled.
 
-### Scan Failures
+## How-to
+
+### Scan locally
 
 ```bash
-# Update Trivy database
-trivy image --download-db-only
+# Install Trivy
+brew install trivy
+# or
+curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-# Clear cache
+# Build and scan image
+docker build -t rust-template:local .
+trivy image rust-template:local
+
+# Scan a specific severity
+trivy image --severity HIGH,CRITICAL rust-template:local
+
+# Output formats
+trivy image --format json rust-template:local > scan.json
+trivy image --format sarif rust-template:local > scan.sarif
+```
+
+Verify: `trivy image rust-template:local` prints a vulnerability table.
+
+### Configure the severity threshold
+
+Trivy behaviour is configured in the central reusable workflow (`zircote/.github`), not in this repo. To adjust severity for a local scan:
+
+```bash
+trivy image --severity CRITICAL,HIGH rust-template:local
+```
+
+Verify: confirm only the selected severities are reported.
+
+### Ignore unfixed vulnerabilities
+
+For a local scan, drop vulnerabilities that have no available fix:
+
+```bash
+trivy image --ignore-unfixed rust-template:local
+```
+
+Verify: vulnerabilities with no available fix no longer appear.
+
+### Suppress specific findings
+
+Create `.trivyignore`:
+
+```text
+# Ignore specific CVEs
+CVE-2021-12345
+
+# Ignore by package
+pkg:deb/debian/openssl@1.1.1
+```
+
+Verify: `trivy image rust-template:local` no longer lists the ignored entries.
+
+### Remediate a finding
+
+1. **Update the base image** (pin by digest for immutability):
+
+   ```dockerfile
+   # Before
+   FROM rust:1.92-slim
+
+   # After (with digest for immutability)
+   FROM rust:1.92-slim@sha256:abc123...
+   ```
+
+2. **Update dependencies and rebuild**:
+
+   ```bash
+   cargo update
+   cargo audit
+   docker build -t rust-template:patched .
+   trivy image rust-template:patched
+   ```
+
+3. **Accept a documented risk** (false positive or mitigated):
+
+   ```text
+   # .trivyignore
+   CVE-2021-12345  # Mitigated by network isolation
+   ```
+
+Verify: re-scan the rebuilt image and confirm the finding is resolved or suppressed.
+
+### Troubleshooting
+
+**Scan failures**:
+
+```bash
+trivy image --download-db-only
 trivy image --clear-cache
 ```
 
-### False Positives
-
-Check vulnerability details:
+**False positives** — inspect the finding, then suppress if confirmed:
 
 ```bash
 trivy image --format json rust-template:local | jq '.Results[].Vulnerabilities[] | select(.VulnerabilityID=="CVE-2021-12345")'
 ```
 
-Add to `.trivyignore` if confirmed false positive.
+**Slow scans**:
 
-### Performance
-
-Scans can be slow. Optimize:
-
-```yaml
+```bash
 # Scan only critical/high
-severity: CRITICAL,HIGH
+trivy image --severity CRITICAL,HIGH rust-template:local
 
-# Skip DB download
-skip-db-update: true  # Use cache
+# Skip DB download (use cache)
+trivy image --skip-db-update rust-template:local
 ```
+
+## Why this matters
+
+A vulnerable dependency or base image is a vulnerability in the shipped artifact, even when the application source is clean. Scanning the built image — not just `Cargo.lock` — catches OS-level CVEs, misconfigurations, and leaked secrets that source-level audits miss. Surfacing the filesystem findings as SARIF in the GitHub Security tab puts them where reviewers already work and gives each one a tracked lifecycle, while the image scan verdict is signed and bound to the image digest as a verifiable attestation. The weekly filesystem schedule re-checks the source against newly disclosed CVEs so a previously clean tree doesn't silently age into a vulnerable one.
 
 ## Links
 
@@ -207,3 +201,4 @@ skip-db-update: true  # Use cache
 - [Configuration Reference](https://aquasecurity.github.io/trivy/latest/docs/configuration/)
 - [CVE Database](https://cve.mitre.org/)
 - [GitHub Security Advisories](https://github.com/advisories)
+- [CI Workflows reference](../template/CI-WORKFLOWS.md)

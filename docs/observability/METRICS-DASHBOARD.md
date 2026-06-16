@@ -1,3 +1,6 @@
+---
+diataxis_type: reference
+---
 # Metrics & Observability Dashboard
 
 ## Overview
@@ -85,7 +88,9 @@ gh api repos/USER/REPO/actions/workflows/ci.yml/runs \
   --jq '.workflow_runs[] | {created_at, conclusion, run_duration_ms}'
 ```
 
-## Dashboard Options
+## Dashboard Options (how-to)
+
+> "Available Metrics" above is the reference catalog of metric sources; the options below are task-oriented setup recipes for surfacing them.
 
 ### Option 1: shields.io Badges
 

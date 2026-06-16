@@ -66,24 +66,33 @@ fn main() -> Result<(), rust_template::Error> {
 
 ## API Overview
 
+> **This is placeholder example API.** `add`, `divide`, `process`, `Config`, and
+> `Error` exist only to demonstrate the template's conventions — error handling,
+> consuming-self builders, doc comments, and tests. **Replace them with your
+> crate's real surface** (the [first-project tutorial](docs/tutorials/first-project.md)
+> walks through doing exactly that).
+
 ### Functions
 
 | Function | Description |
 |----------|-------------|
-| `add(a, b)` | Adds two numbers |
-| `divide(a, b)` | Divides with error handling |
+| `add(a, b)` | Adds two numbers (pure, `const fn`) |
+| `divide(a, b)` | Divides, returning `Result` for divide-by-zero |
+| `process(input)` | Parses and validates a `&str` into an `i64` |
 
 ### Types
 
 | Type | Description |
 |------|-------------|
-| `Config` | Configuration with builder pattern |
-| `Error` | Error type for operations |
+| `Config` | Configuration with a consuming-self builder |
+| `Error` | Error type (`thiserror`) for operations |
 | `Result<T>` | Type alias for `Result<T, Error>` |
 
 ## Getting Started
 
-**New to this template?** See the [Getting Started Guide](docs/template/GETTING-STARTED.md) for a step-by-step walkthrough from "Use this template" to your first CI pass.
+**Brand new?** Follow the [**Your First Project** tutorial](docs/tutorials/first-project.md) — a guided, learning-oriented walkthrough from "Use this template" to a green build, your first change, and your first release.
+
+For task-focused steps, see the [Getting Started Guide](docs/template/GETTING-STARTED.md).
 
 ## Development
 
@@ -211,22 +220,9 @@ This template includes production-ready workflows:
 
 ### Creating a Release
 
-Releases are orchestrated end-to-end by the `/release` skill (`.claude/skills/release/SKILL.md`). The manual equivalent:
+Releases are orchestrated end-to-end by the `/release` skill (`.claude/skills/release/SKILL.md`). The full procedure, gates, and timings live in the canonical [Releasing runbook](docs/runbooks/RELEASING.md); the design rationale is in [Signed Releases](docs/security/SIGNED-RELEASES.md).
 
-1. Update version in `Cargo.toml`
-2. Create and push a version tag:
-   ```bash
-   git tag -a v0.2.0 -m "Release v0.2.0"
-   git push origin v0.2.0
-   ```
-3. Workflows automatically:
-   - Build binaries for all platforms with SLSA build provenance
-   - Generate and attest a `CycloneDX` SBOM
-   - Verify every attestation (fail-closed) before publishing anything
-   - Create GitHub release with artifacts and checksums
-   - Build, sign, and push Docker images
-   - Publish to crates.io via Trusted Publishing
-   - Update the Homebrew tap formula
+In short: bump the version in `Cargo.toml`, push a `vX.Y.Z` tag, and the workflows build all platform binaries with SLSA provenance, generate + attest a `CycloneDX` SBOM, fail-closed-verify every attestation, then create the GitHub release, sign/push images, publish to crates.io (Trusted Publishing), and update the Homebrew tap.
 
 Verification commands for every artifact type live in [SECURITY.md](SECURITY.md#verifying-release-artifacts).
 

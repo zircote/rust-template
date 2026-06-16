@@ -1,3 +1,6 @@
+---
+diataxis_type: how-to
+---
 # Package Manager Distribution
 
 ## Overview

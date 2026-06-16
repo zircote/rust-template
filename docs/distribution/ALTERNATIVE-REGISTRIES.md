@@ -1,10 +1,15 @@
+---
+diataxis_type: reference
+---
 # Alternative Cargo Registries
 
 ## Overview
 
 Publishing Rust crates to alternative registries beyond crates.io for private packages, enterprise distribution, or specialized ecosystems.
 
-## Why Alternative Registries?
+## Why Alternative Registries? (explanation)
+
+> This section is rationale; the registry catalog and configuration tables below are the reference content.
 
 - **Private packages** - Keep proprietary code internal
 - **Enterprise control** - Host on internal infrastructure

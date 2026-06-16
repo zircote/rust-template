@@ -1,84 +1,28 @@
+---
+diataxis_type: how-to
+---
 # Secrets Scanning with Gitleaks
 
-## Overview
+Automated secrets detection to prevent credential leaks using [Gitleaks](https://github.com/gitleaks/gitleaks). This scan **fails CI** when a secret is detected.
 
-Automated secrets detection to prevent credential leaks using [Gitleaks](https://github.com/gitleaks/gitleaks).
+## Reference
 
-**Workflow:** `.github/workflows/secrets-scan.yml`  
-**Configuration:** `.gitleaks.toml`  
-**Behavior:** **FAILS CI** if secrets detected  
-**Triggers:** Every push, all pull requests
+| Field | Value |
+|---|---|
+| Workflow | `.github/workflows/secrets-scan.yml` |
+| Configuration | `.gitleaks.toml` |
+| Behavior | **Fails CI** if secrets detected |
+| Triggers | Every push, all pull requests |
 
-## How It Works
+### What it scans
 
-Scans:
 - New commits (on push)
-- All commits in PR branch
+- All commits in the PR branch
 - Files, comments, diffs
 
-Detects:
-- API keys
-- Passwords
-- Tokens (GitHub, AWS, etc.)
-- Private keys
-- Database connection strings
-- Over 100+ secret patterns
+### What it detects
 
-## Configuration
-
-Edit `.gitleaks.toml` to customize:
-
-```toml
-[extend]
-useDefault = true  # Use built-in rules
-
-[allowlist]
-paths = [
-    '''test/fixtures/secrets.txt''',  # Ignore test files
-]
-
-regexes = [
-    '''EXAMPLE_.*''',  # Ignore example placeholders
-]
-```
-
-## Usage
-
-### Local Scanning
-
-```bash
-# Install gitleaks
-brew install gitleaks
-# or
-curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz | tar -xz
-
-# Scan current changes
-gitleaks detect --source . --verbose
-
-# Scan entire history
-gitleaks detect --source . --log-opts="--all"
-
-# Scan specific commit
-gitleaks detect --source . --log-opts="--since=HEAD~1"
-```
-
-### Pre-commit Hook
-
-Prevent secrets from being committed:
-
-```bash
-# .git/hooks/pre-commit
-#!/bin/sh
-gitleaks protect --verbose --redact --staged
-```
-
-```bash
-chmod +x .git/hooks/pre-commit
-```
-
-## What Gets Detected
-
-### Example Patterns
+API keys, passwords, tokens (GitHub, AWS, etc.), private keys, database connection strings, and 100+ built-in secret patterns. Example shapes:
 
 ```text
 # AWS Access Key
@@ -97,82 +41,73 @@ api_key=sk_live_1234567890abcdef
 postgres://user:password@localhost:5432/db
 ```
 
-## Handling Detections
+### Failure output
 
-### False Positives
-
-1. **Add to allowlist** (`.gitleaks.toml`):
-
-```toml
-[allowlist]
-regexes = [
-    '''YOUR_PLACEHOLDER_TOKEN''',
-]
-
-paths = [
-    '''docs/examples/''',
-]
-```
-
-2. **Inline ignore**:
-
-```python
-secret = "not-a-real-secret"  # gitleaks:allow
-```
-
-### True Positives (Leaked Secrets)
-
-**CRITICAL:** If a secret is leaked:
-
-1. **Rotate immediately** - Assume compromised
-2. **Remove from history**:
-   ```bash
-   # Use BFG Repo-Cleaner
-   bfg --replace-text secrets.txt repo.git
-   ```
-3. **Force push** (destructive):
-   ```bash
-   git push --force
-   ```
-
-## CI Integration
-
-The workflow runs on every push and **fails CI** if secrets are found.
-
-**Failure Example:**
 ```text
 Error: gitleaks detected secrets in commits
-Finding: api_key="sk_live_..." 
+Finding: api_key="sk_live_..."
   File: src/config.rs
   Line: 42
   Commit: abc1234
 ```
 
-## Troubleshooting
+## How-to
 
-### Slow Scans
-
-Gitleaks scans git history. For faster scans:
+### Scan locally
 
 ```bash
-# Scan only new commits
-gitleaks protect --staged
+# Install gitleaks
+brew install gitleaks
+# or
+curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz | tar -xz
+
+# Scan current changes
+gitleaks detect --source . --verbose
+
+# Scan entire history
+gitleaks detect --source . --log-opts="--all"
+
+# Scan a specific commit range
+gitleaks detect --source . --log-opts="--since=HEAD~1"
 ```
 
-### Ignoring Files
+Verify: a clean tree reports `no leaks found`.
+
+### Install a pre-commit hook
+
+Block secrets before they are committed:
+
+```bash
+# .git/hooks/pre-commit
+#!/bin/sh
+gitleaks protect --verbose --redact --staged
+```
+
+```bash
+chmod +x .git/hooks/pre-commit
+```
+
+Verify: staging a test secret aborts the commit.
+
+### Configure rules and allowlists
+
+Edit `.gitleaks.toml`:
 
 ```toml
+[extend]
+useDefault = true  # Use built-in rules
+
 [allowlist]
 paths = [
-    '''\.lock$''',       # Lock files
-    '''vendor/''',       # Vendored code  
-    '''test/fixtures/''', # Test data
+    '''test/fixtures/secrets.txt''',  # Ignore test files
+]
+
+regexes = [
+    '''EXAMPLE_.*''',  # Ignore example placeholders
 ]
 ```
 
-### Custom Rules
-
-Add project-specific secret patterns:
+Add project-specific patterns:
 
 ```toml
 [[rules]]
@@ -181,8 +116,77 @@ description = "Project API Key"
 regex = '''project_key_[0-9a-f]{32}'''
 ```
 
+Verify: `gitleaks detect --source .` honors the new rules and allowlists.
+
+### Handle a false positive
+
+1. Add it to the allowlist in `.gitleaks.toml`:
+
+   ```toml
+   [allowlist]
+   regexes = [
+       '''YOUR_PLACEHOLDER_TOKEN''',
+   ]
+
+   paths = [
+       '''docs/examples/''',
+   ]
+   ```
+
+2. Or mark the line inline:
+
+   ```python
+   secret = "not-a-real-secret"  # gitleaks:allow
+   ```
+
+Verify: re-run `gitleaks detect` and confirm the finding is gone.
+
+### Respond to a real leaked secret
+
+**Critical** — if a real secret is detected:
+
+1. **Rotate immediately** — assume the secret is compromised.
+2. **Remove it from history**:
+
+   ```bash
+   # Use BFG Repo-Cleaner
+   bfg --replace-text secrets.txt repo.git
+   ```
+
+3. **Force push** (destructive):
+
+   ```bash
+   git push --force
+   ```
+
+Verify: `gitleaks detect --source . --log-opts="--all"` no longer finds the secret.
+
+### Troubleshooting
+
+**Slow scans** — scan only staged changes:
+
+```bash
+gitleaks protect --staged
+```
+
+**Ignoring files**:
+
+```toml
+[allowlist]
+paths = [
+    '''\.lock$''',        # Lock files
+    '''vendor/''',        # Vendored code
+    '''test/fixtures/''', # Test data
+]
+```
+
+## Why this matters
+
+A leaked credential is one of the fastest paths from a public repository to a compromised system, and once a secret reaches git history it persists in every clone and fork — rotation, not deletion, is the only real fix. Failing CI on detection makes the leak un-mergeable rather than merely flagged, and the pre-commit hook pushes the check earlier still, stopping the secret before it ever enters history where cleanup becomes destructive and incomplete.
+
 ## Links
 
 - [Gitleaks Documentation](https://github.com/gitleaks/gitleaks)
 - [Configuration Guide](https://github.com/gitleaks/gitleaks/tree/master#configuration)
 - [Rule Patterns](https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml)
+- [CI Workflows reference](../template/CI-WORKFLOWS.md)

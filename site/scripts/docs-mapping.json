@@ -210,6 +210,20 @@
       "title": "ADR-0002: Documentation Directory Structure",
       "description": "Decision on documentation directory organization.",
       "sidebarLabel": "ADR-0002: Doc Structure"
+    },
+    {
+      "source": "docs/tutorials/first-project.md",
+      "output": "tutorials/first-project.mdx",
+      "title": "Your First Project",
+      "description": "A guided, learning-oriented walkthrough from template creation to a green build, a first change, and a first release.",
+      "sidebarLabel": "Your First Project"
+    },
+    {
+      "source": "docs/explanation/architecture.md",
+      "output": "explanation/architecture.mdx",
+      "title": "Architecture & Design",
+      "description": "Why the template is built the way it is: the crates/ layout, CI orchestration, attested delivery, and lint philosophy.",
+      "sidebarLabel": "Architecture & Design"
     }
   ]
 }

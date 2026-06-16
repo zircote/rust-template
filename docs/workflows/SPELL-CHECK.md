@@ -1,25 +1,51 @@
+---
+diataxis_type: how-to
+---
 # Spell Checking with typos
 
-## Overview
+Automated spell checking for documentation, code comments, and string literals using [typos](https://github.com/crate-ci/typos). It warns on typos but does not fail CI.
 
-Automated spell checking for documentation, code comments, and string literals using [typos](https://github.com/crate-ci/typos).
+## Reference
 
-**Workflow:** `.github/workflows/spell-check.yml`  
-**Configuration:** `.typos.toml`  
-**Behavior:** Warns on typos, does not fail CI
+| Field | Value |
+|---|---|
+| Workflow | `.github/workflows/spell-check.yml` |
+| Configuration | `.typos.toml` |
+| Behavior | Warns on typos, does not fail CI |
 
-## How It Works
+### Triggers
 
-The workflow runs on:
-- Every push to main/master
-- All pull requests
-- Manual workflow dispatch
+The workflow runs on every push to main/master, all pull requests, and manual workflow dispatch. It scans all files (except excluded paths) for common typos and suggests corrections.
 
-It scans all files (except excluded paths) for common typos and suggests corrections.
+### Warning output
 
-## Configuration
+```text
+warning: `recieve` should be `receive`
+  --> crates/lib.rs:10
+```
 
-Edit `.typos.toml` to customize behavior:
+Results are visible in the Actions tab.
+
+## How-to
+
+### Check locally
+
+```bash
+# Install typos
+cargo install typos-cli
+
+# Check for typos
+typos
+
+# Auto-fix typos
+typos --write-changes
+```
+
+Verify: `typos` exits without warnings on clean text.
+
+### Configure behavior
+
+Edit `.typos.toml`:
 
 ```toml
 [default]
@@ -40,43 +66,20 @@ extend-exclude = [
 # "typo" = "correct"
 ```
 
-## Usage
+Verify: `typos` no longer flags the configured patterns.
 
-### Local Check
+### Handle a false positive
 
-```bash
-# Install typos
-cargo install typos-cli
-
-# Check for typos
-typos
-
-# Auto-fix typos
-typos --write-changes
-```
-
-### CI Integration
-
-The workflow runs automatically. Check the Actions tab for results.
-
-**Warning Output:**
-```text
-warning: `recieve` should be `receive`
-  --> crates/lib.rs:10
-```
-
-## Troubleshooting
-
-### False Positives
-
-Add to `.typos.toml`:
+Accept a word as correct:
 
 ```toml
 [default.extend-words]
 myword = "myword"  # Accept as correct
 ```
 
-### Ignore Specific Files
+Verify: re-run `typos` and confirm the word is no longer flagged.
+
+### Exclude specific files
 
 ```toml
 [files]
@@ -85,9 +88,9 @@ extend-exclude = [
 ]
 ```
 
-### Custom Dictionary
+Verify: `typos` skips the excluded paths.
 
-Create a project dictionary:
+### Maintain a custom dictionary
 
 ```toml
 [default.extend-identifiers]
@@ -99,7 +102,14 @@ myvar = "myvar"
 specialterm = "specialterm"
 ```
 
+Verify: `typos` treats the listed identifiers and words as correct.
+
+## Why this matters
+
+Typos in public-facing documentation, API names, and error messages erode trust and make a project look unmaintained, but a hard CI failure on every misspelling would block merges for trivial reasons and tempt contributors to disable the check entirely. Running typos as a non-blocking warning keeps spelling visible on every change without gatekeeping, and the configurable dictionary means domain terms and identifiers are accepted once rather than fought repeatedly.
+
 ## Links
 
 - [typos Documentation](https://github.com/crate-ci/typos)
 - [Configuration Reference](https://github.com/crate-ci/typos/blob/master/docs/reference.md)
+- [CI Workflows reference](../template/CI-WORKFLOWS.md)

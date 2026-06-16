@@ -1,3 +1,6 @@
+---
+diataxis_type: explanation
+---
 # Use Architectural Decision Records
 
 ## Status

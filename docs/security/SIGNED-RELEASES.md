@@ -1,3 +1,6 @@
+---
+diataxis_type: explanation
+---
 # Signed Releases & SLSA Provenance
 
 ## Overview
