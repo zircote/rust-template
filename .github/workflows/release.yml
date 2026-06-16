@@ -216,6 +216,8 @@ jobs:
         uses: >-
           actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
+          # Only the release binaries (exclude the seam SARIF artifacts).
+          pattern: ${{ needs.meta.outputs.bin }}-${{ needs.meta.outputs.version }}-*
           path: dist
           merge-multiple: true
 
@@ -268,6 +270,12 @@ jobs:
         uses: >-
           actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
+          # Restrict to the release binaries + SBOM. Without this filter the
+          # publish-gated seam jobs' SARIF artifacts (sast-sarif, scorecard-
+          # sarif, iac-license-sarif, "OSV Scanner SARIF file") would merge
+          # into dist/ too, breaking the 6-artifact count check and polluting
+          # checksums / release assets.
+          pattern: ${{ needs.meta.outputs.bin }}-${{ needs.meta.outputs.version }}-*
           path: dist
           merge-multiple: true
 
@@ -479,6 +487,12 @@ jobs:
         uses: >-
           actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
+          # Restrict to the release binaries + SBOM. Without this filter the
+          # publish-gated seam jobs' SARIF artifacts (sast-sarif, scorecard-
+          # sarif, iac-license-sarif, "OSV Scanner SARIF file") would merge
+          # into dist/ too, breaking the 6-artifact count check and polluting
+          # checksums / release assets.
+          pattern: ${{ needs.meta.outputs.bin }}-${{ needs.meta.outputs.version }}-*
           path: dist
           merge-multiple: true
 
