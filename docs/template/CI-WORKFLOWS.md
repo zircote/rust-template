@@ -64,7 +64,7 @@ package-homebrew.yml
 | Workflow | File | Trigger | Required Secrets | Status |
 |---|---|---|---|---|
 | Security Audit | `security-audit.yml` | schedule (daily), push, manual | -- | Active |
-| CodeQL Analysis | `codeql-analysis.yml` | push, PR, schedule (weekly), manual | -- | Active |
+| Quality Gates (SAST/SCA/posture/IaC) | `quality-gates.yml` | push, PR, schedule (weekly), manual | -- | Active |
 | Secrets Scan | `secrets-scan.yml` | push, PR, manual | `GITLEAKS_LICENSE` | Active |
 | Benchmark | `benchmark.yml` | push, PR, manual | -- | Active |
 | Benchmark Regression | `benchmark-regression.yml` | PR, manual | -- | Active |
@@ -241,10 +241,13 @@ detect known vulnerabilities in dependencies.
 **Trigger:** Daily schedule at 00:00 UTC, push when `Cargo.toml` or
 `Cargo.lock` change, manual.
 
-### codeql-analysis.yml
+### quality-gates.yml
 
-**What it does:** Performs GitHub CodeQL static analysis on Rust code. Results
-surface in the repository Security tab.
+**What it does:** Thin caller of the `zircote/.github` central reusable
+quality-gate workflows: SAST (CodeQL, Rust), SCA (OSV-Scanner + dependency
+review), supply-chain posture (OpenSSF Scorecard), and IaC/license (Trivy).
+Each gate normalizes on SARIF and surfaces in the repository Security tab;
+supersedes the former standalone `codeql-analysis.yml`.
 
 **Trigger:** Push to `main`, pull request to `main`, weekly schedule, manual.
 
