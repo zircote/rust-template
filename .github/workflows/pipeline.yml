@@ -182,3 +182,52 @@ jobs:
         needs.docker.outputs.image-digest }}
       attestation-repo: ${{ github.repository }}
 
+  # -----------------------------------------------------------
+  # Container vulnerability gate attestation (gh-attested) —
+  # Trivy image scan signed and bound to the image digest, with
+  # the same publish + non-PR gating as the docker chain above.
+  # Dormant in template state (docker is gated on `publishable`).
+  # -----------------------------------------------------------
+  gate-image:
+    name: Gate — Trivy (image)
+    needs: [docker]
+    if: >-
+      github.event_name != 'pull_request'
+      && (github.event_name != 'workflow_dispatch'
+      || inputs.stage == 'all'
+      || inputs.stage == 'docker')
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      packages: read
+    # zircote/.github main @ 77a87549 (merged 2026-06-16)
+    uses: >-
+      zircote/.github/.github/workflows/reusable-trivy.yml@77a87549a65c6c978a0e87efe0168ed3517f7ca4
+    with:
+      image-ref: >-
+        ghcr.io/${{ github.repository }}@${{
+        needs.docker.outputs.image-digest }}
+      scan-iac: false
+
+  attest-container-scan:
+    name: Attest — Container scan
+    needs: [docker, gate-image]
+    if: >-
+      github.event_name != 'pull_request'
+      && (github.event_name != 'workflow_dispatch'
+      || inputs.stage == 'all'
+      || inputs.stage == 'docker')
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    # zircote/.github main @ 77a87549 (merged 2026-06-16)
+    uses: >-
+      zircote/.github/.github/workflows/reusable-attest-scan.yml@77a87549a65c6c978a0e87efe0168ed3517f7ca4
+    with:
+      subject-name: ghcr.io/${{ github.repository }}
+      subject-digest: ${{ needs.docker.outputs.image-digest }}
+      predicate-type: https://zircote.github.io/attestations/container-scan/v1
+      predicate-artifact: ${{ needs.gate-image.outputs.image-sarif-artifact }}
+      predicate-filename: ${{ needs.gate-image.outputs.image-sarif-filename }}

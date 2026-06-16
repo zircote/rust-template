@@ -1,0 +1,95 @@
+---
+name: quality-gates
+
+# Merge-time quality gates: a thin caller of the zircote/.github central
+# reusable workflows. Each gate normalizes on SARIF and lands in the
+# code-scanning hub; the "Code scanning results" required check is the merge
+# gate. Pins resolve to the central repo's default-branch HEAD at wiring time;
+# Dependabot (github-actions ecosystem) keeps them fresh.
+#
+# Deploy-time attestation — the "seam" that signs each gate's verdict bound to
+# a release subject — lives in release.yml / pipeline.yml (publish-gated).
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly Monday 06:00 UTC — preserves the cadence of the standalone CodeQL
+    # workflow this caller supersedes.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # SAST — CodeQL (Rust, build-mode none). Supersedes codeql-analysis.yml.
+  # packages: read — the reusable's analyze job declares it (CodeQL package
+  # resolution); a caller must grant >= the reusable's permissions or the call
+  # fails at startup.
+  sast:
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+      packages: read
+    # zircote/.github main @ 77a87549 (resolved 2026-06-16)
+    uses: >-
+      zircote/.github/.github/workflows/reusable-sast-codeql.yml@77a87549a65c6c978a0e87efe0168ed3517f7ca4
+    with:
+      languages: rust
+      build-mode: none
+
+  # SCA — OSV-Scanner (independent second opinion vs RustSec/cargo-audit) plus
+  # dependency review (PR merge gate). Complements the cargo Dependabot setup.
+  sca:
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+      pull-requests: write
+    # zircote/.github main @ 77a87549 (resolved 2026-06-16)
+    uses: >-
+      zircote/.github/.github/workflows/reusable-sca-osv.yml@77a87549a65c6c978a0e87efe0168ed3517f7ca4
+    with:
+      fail-on-severity: high
+      # Scope OSV to the Rust crate lockfile; the docs site under site/ has its
+      # own npm deps covered by Dependabot, not this crate's SCA gate.
+      scan-args: |-
+        --lockfile=Cargo.lock
+
+  # Supply-chain posture — OpenSSF Scorecard. Requires the default branch, so
+  # it does not run on pull_request.
+  posture:
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+      actions: read
+    # zircote/.github main @ 77a87549 (resolved 2026-06-16)
+    uses: >-
+      zircote/.github/.github/workflows/reusable-scorecard.yml@77a87549a65c6c978a0e87efe0168ed3517f7ca4
+
+  # IaC + license — Trivy filesystem scan (Dockerfile, manifests, licenses).
+  # No image-ref: the container is gated by `publish = false` (template state).
+  # packages: read — the reusable's (skipped) image job declares it; the caller
+  # must still grant >= all the reusable's job permissions or the call fails at
+  # startup, even for conditional jobs.
+  trivy:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      packages: read
+    # zircote/.github main @ 77a87549 (resolved 2026-06-16)
+    uses: >-
+      zircote/.github/.github/workflows/reusable-trivy.yml@77a87549a65c6c978a0e87efe0168ed3517f7ca4
+    with:
+      scan-iac: true
