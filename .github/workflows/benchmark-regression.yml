@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   benchmark:
@@ -108,38 +107,6 @@ jobs:
             target/criterion/
             bench-output.txt
           retention-days: 90
-
-      - name: Comment PR with results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const fs = require('fs');
-            if (fs.existsSync('benchmark-report.md')) {
-              // Sticky comment: update one report in place per PR.
-              const marker = '<!-- sticky-report: benchmark -->';
-              const body = marker + '\n'
-                + fs.readFileSync('benchmark-report.md', 'utf8');
-              const { owner, repo } = context.repo;
-              const issue_number = context.issue.number;
-              const comments = await github.paginate(
-                github.rest.issues.listComments,
-                { owner, repo, issue_number, per_page: 100 }
-              );
-              const existing = comments.find(
-                (c) => c.user.type === 'Bot'
-                  && c.body && c.body.includes(marker)
-              );
-              if (existing) {
-                await github.rest.issues.updateComment({
-                  owner, repo, comment_id: existing.id, body
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number, body
-                });
-              }
-            }
 
       - name: Save baseline for main branch
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
