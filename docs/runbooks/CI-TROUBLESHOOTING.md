@@ -328,7 +328,8 @@ If a test passes sometimes and fails sometimes:
 
 ## CodeQL Failures
 
-**Workflow:** `codeql-analysis.yml`
+**Workflow:** `quality-gates.yml` (the `sast` job; SAST runs via the central
+`reusable-sast-codeql.yml`)
 **Schedule:** Weekly (Monday 06:00 UTC) + pushes to `main`
 
 ### Common Findings

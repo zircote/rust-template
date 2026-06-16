@@ -241,7 +241,7 @@ This project runs multiple layers of automated security scanning:
 | Tool | Workflow | Schedule | What it checks |
 |---|---|---|---|
 | **cargo-audit** | `security-audit.yml` | Daily at 00:00 UTC | RustSec advisory database |
-| **CodeQL** | `codeql-analysis.yml` | Weekly (Monday 06:00 UTC) + every push to main | Static analysis, code quality, security patterns |
+| **CodeQL** | `quality-gates.yml` (`sast` job) | Weekly (Monday 06:00 UTC) + every push to main | Static analysis, code quality, security patterns |
 | **Trivy** | `container-scan.yml` | On-demand (workflow_dispatch) | Container image vulnerabilities |
 
 ### Dependency Management

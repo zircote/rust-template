@@ -177,7 +177,7 @@ This template includes production-ready workflows:
 
 - **CI** (`.github/workflows/pipeline.yml`) - Format, lint, test, docs, supply chain security, MSRV check, coverage
 - **Security Audit** (`.github/workflows/security-audit.yml`) - Daily cargo-audit scans
-- **`CodeQL` Analysis** (`.github/workflows/codeql-analysis.yml`) - SAST scanning on push/PR and weekly schedule
+- **Quality Gates** (`.github/workflows/quality-gates.yml`) - CodeQL SAST, OSV/dependency-review SCA, OpenSSF Scorecard, and Trivy IaC/license on push/PR and weekly schedule
 - **Benchmark** (`.github/workflows/benchmark.yml`) - Performance tracking with criterion
 - **ADR Validation** (`.github/workflows/adr-validation.yml`) - Architectural decision records validation
 
