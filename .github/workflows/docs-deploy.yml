@@ -1,6 +1,11 @@
 ---
 name: Deploy Documentation
 
+# Builds and validates the docs site (rustdoc + Astro) on every relevant change
+# so breakage is caught early. Publishing to GitHub Pages is OPT-IN and dormant
+# in the template: enable Pages (Settings -> Pages -> "GitHub Actions") and set
+# the repo variable DEPLOY_DOCS=true to deploy. See the Setup Pages step below.
+
 "on":
   push:
     branches: [main]
@@ -67,16 +72,19 @@ jobs:
           REDIR="$REDIR"' content="0; url=rust_template">'
           echo "$REDIR" > site/dist/api/index.html
 
+      # Pages deploy is OPT-IN. The template builds and validates the docs on
+      # every change (above), but does not publish by default: a fresh template
+      # has no GitHub Pages site, and this org does not allow the Actions token
+      # to create one (configure-pages enablement fails "Resource not accessible
+      # by integration"). To publish, enable Pages (Settings -> Pages ->
+      # "GitHub Actions") and set the repo variable DEPLOY_DOCS=true.
       - name: Setup Pages
+        if: vars.DEPLOY_DOCS == 'true'
         # yamllint disable-line rule:line-length
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
-        with:
-          # Self-bootstrap: enable GitHub Pages (build_type: workflow) on first
-          # run so the template — and any downstream fork — deploys docs without
-          # manual repo setup.
-          enablement: true
 
       - name: Upload artifact
+        if: vars.DEPLOY_DOCS == 'true'
         # yamllint disable-line rule:line-length
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
@@ -84,6 +92,7 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
+    if: vars.DEPLOY_DOCS == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
