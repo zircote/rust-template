@@ -70,6 +70,11 @@ jobs:
       - name: Setup Pages
         # yamllint disable-line rule:line-length
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
+        with:
+          # Self-bootstrap: enable GitHub Pages (build_type: workflow) on first
+          # run so the template — and any downstream fork — deploys docs without
+          # manual repo setup.
+          enablement: true
 
       - name: Upload artifact
         # yamllint disable-line rule:line-length
