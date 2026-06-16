@@ -133,7 +133,7 @@ gh run view <run-id> --log-failed
 | Build Binaries (5 legs) | ~5-10 min | The macos-amd64 leg (cross-target on `macos-latest`) |
 | Test + Cargo Audit gates | ~3 min | New advisory in `Cargo.lock` (audit scans the raw lockfile; deny may not have flagged it) |
 | SBOM (generate + attest) | ~1 min | Attestation permissions (`id-token`, `attestations`) |
-| Verify Attestations | <1 min | Fail-closed gate: any missing/unverifiable attestation blocks the release |
+| Verify Attestations | &lt;1 min | Fail-closed gate: any missing/unverifiable attestation blocks the release |
 | Create Release | ~1 min | Only runs on tags, after verify passes |
 | Publish (crates.io) | ~3 min | Trusted Publishing config missing, pre-publish checks |
 | Docker chain (pipeline) | ~5-10 min | Buildx multi-platform, central signer/verify |
