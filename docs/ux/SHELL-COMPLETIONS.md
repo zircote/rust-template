@@ -1,3 +1,6 @@
+---
+diataxis_type: how-to
+---
 # Shell Completions
 
 ## Overview

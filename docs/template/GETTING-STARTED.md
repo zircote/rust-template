@@ -1,3 +1,7 @@
+---
+diataxis_type: how-to
+---
+
 # Getting Started
 
 > You just created a repository from **zircote/rust-template**. This guide walks you through every step from creation to your first green CI run.

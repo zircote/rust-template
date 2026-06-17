@@ -3,7 +3,8 @@ name: Mutation Testing
 on:
   pull_request:
     paths:
-      - 'src/**'
+      # Source lives in crates/ (not src/) — see ADR-0002.
+      - 'crates/**'
       - 'tests/**'
       - 'Cargo.toml'
       - 'Cargo.lock'

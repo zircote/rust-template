@@ -1,46 +1,81 @@
+---
+diataxis_type: how-to
+---
 # Code Quality Metrics
 
-## Overview
+Automated collection of code quality metrics — unsafe code detection, binary size analysis, and documentation coverage — emitted as a single report artifact.
 
-Automated collection of code quality metrics including unsafe code detection, binary size analysis, and documentation coverage.
+## Reference
 
-**Workflow:** `.github/workflows/code-quality.yml`  
-**Tools:** `cargo-geiger`, `cargo-bloat`, `rustdoc`  
-**Output:** Markdown report artifact
+| Field | Value |
+|---|---|
+| Workflow | `.github/workflows/code-quality.yml` |
+| Tools | `cargo-geiger`, `cargo-bloat`, `rustdoc` |
+| Output | Markdown report artifact |
 
-## Metrics Collected
+### Metrics collected
 
-### 1. Unsafe Code Analysis (cargo-geiger)
+| Metric | Tool | What it detects |
+|---|---|---|
+| Unsafe code analysis | `cargo-geiger` | Unsafe function calls, blocks, trait impls, and unsafe in dependencies |
+| Binary size analysis | `cargo-bloat` | Size by crate and by function; bloat sources |
+| Documentation coverage | `rustdoc` | Missing doc comments, broken doc links, doc test failures |
 
-Detects unsafe code usage:
-- Unsafe function calls
-- Unsafe blocks
-- Unsafe trait implementations
-- Dependencies with unsafe code
+### Report access
 
-**Why it matters:** Unsafe code bypasses Rust's safety guarantees.
+The workflow generates a combined report. Access it via **Actions → Code Quality Metrics → Artifacts → code-quality-metrics**.
 
-### 2. Binary Size Analysis (cargo-bloat)
+Example report:
 
-Analyzes what contributes to binary size:
-- Size by crate
-- Size by function
-- Identifies bloat
+```markdown
+## Unsafe Code Analysis
+Functions  Expressions  Impls  Traits  Methods  Dependency
+0/10       0/100        0/5    0/2     0/20     rust_template
 
-**Why it matters:** Smaller binaries = faster downloads, less memory.
+## Binary Size Analysis
+File   .text   Size    Crate
+ 71.0%  59.0%   1.2MiB  std
+  8.5%   7.1%   147KiB  rust_template
 
-### 3. Documentation Coverage
+## Documentation Coverage
+Documenting rust_template v0.1.0
+warning: missing documentation for public function
+```
 
-Checks documentation completeness:
-- Missing doc comments
-- Broken doc links
-- Doc test failures
+### Interpreting the unsafe code report
 
-**Why it matters:** Well-documented APIs are easier to use.
+```text
+Functions  Expressions  Impls  Traits  Methods  Dependency
+2/10       5/100        0/5    0/2     0/20     ✓ rust_template
+```
 
-## Usage
+- **Functions**: 2 functions contain unsafe code.
+- **Expressions**: 5 unsafe expressions total.
+- **✓** = no unsafe in this crate's API.
 
-### Local Analysis
+### Interpreting the binary size report
+
+```text
+File   .text   Size    Crate
+71.0%  59.0%   1.2MiB  std        ← Standard library
+ 8.5%   7.1%   147KiB  rust_template
+ 5.2%   4.3%   89KiB   serde
+```
+
+A large dependency contribution (e.g. `serde`) is a candidate for feature-flag trimming.
+
+### Interpreting documentation coverage
+
+```text
+warning: missing documentation for public function `add`
+  --> crates/lib.rs:10
+```
+
+Each warning names the public item that needs a doc comment.
+
+## How-to
+
+### Run the analysis locally
 
 ```bash
 # Install tools
@@ -57,33 +92,11 @@ cargo bloat --release --crates
 cargo doc --no-deps --all-features
 ```
 
-### CI Reports
+Verify: each command prints a report section matching the formats above.
 
-The workflow generates a combined report:
+### Configure unsafe code policy
 
-**Access:** Actions → Code Quality Metrics → Artifacts → code-quality-metrics
-
-**Example Report:**
-```markdown
-## Unsafe Code Analysis
-Functions  Expressions  Impls  Traits  Methods  Dependency
-0/10       0/100        0/5    0/2     0/20     rust_template
-
-## Binary Size Analysis
-File   .text   Size    Crate
- 71.0%  59.0%   1.2MiB  std
-  8.5%   7.1%   147KiB  rust_template
-  
-## Documentation Coverage
-Documenting rust_template v0.1.0
-warning: missing documentation for public function
-```
-
-## Configuration
-
-### Unsafe Code Limits
-
-In `Cargo.toml`:
+Set the unsafe policy in `Cargo.toml`:
 
 ```toml
 [lints.rust]
@@ -92,7 +105,9 @@ unsafe_code = "forbid"  # No unsafe allowed
 unsafe_code = "warn"    # Warn but allow
 ```
 
-### Binary Size Optimization
+Verify: `cargo geiger` reports `0/N` for a `forbid` crate.
+
+### Configure binary size optimization
 
 ```toml
 [profile.release]
@@ -103,59 +118,21 @@ strip = true          # Remove symbols
 panic = "abort"       # Smaller panic handler
 ```
 
-### Documentation Requirements
+Verify: `cargo build --release && cargo bloat --release --crates` and compare the total size.
+
+### Configure documentation requirements
 
 ```toml
 [lints.rust]
-missing_docs = "warn"           # Warn on missing docs
+missing_docs = "warn"                     # Warn on missing docs
 rustdoc::broken_intra_doc_links = "deny"  # Fail on broken links
 ```
 
-## Interpreting Results
+Verify: `cargo doc --no-deps` surfaces missing-doc warnings.
 
-### Unsafe Code Report
+### Improve the metrics
 
-```text
-Functions  Expressions  Impls  Traits  Methods  Dependency
-2/10       5/100        0/5    0/2     0/20     ✓ rust_template
-```
-
-- **Functions**: 2 functions contain unsafe code
-- **Expressions**: 5 unsafe expressions total
-- **✓** = No unsafe in this crate's API
-
-**Action:** Review unsafe usage, add safety comments.
-
-### Binary Size Report
-
-```text
-File   .text   Size    Crate
-71.0%  59.0%   1.2MiB  std        ← Standard library
- 8.5%   7.1%   147KiB  rust_template
- 5.2%   4.3%   89KiB   serde
-```
-
-**Action:** Consider `serde` feature flags to reduce size.
-
-### Documentation Coverage
-
-```text
-warning: missing documentation for public function `add`
-  --> crates/lib.rs:10
-```
-
-**Action:** Add doc comments:
-
-```rust
-/// Adds two numbers together.
-pub fn add(a: i64, b: i64) -> i64 {
-    a + b
-}
-```
-
-## Improving Metrics
-
-### Reduce Unsafe Code
+**Reduce unsafe code** — replace raw pointer writes with safe abstractions:
 
 ```rust
 // Before
@@ -167,60 +144,55 @@ unsafe {
 vec[index] = value;
 ```
 
-### Reduce Binary Size
+**Reduce binary size** — find the largest contributors, then enable size optimizations:
 
 ```bash
-# Analyze what's taking space
 cargo bloat --release -n 20
-
-# Enable size optimizations
-[profile.release]
-opt-level = "z"
-strip = true
 ```
 
-### Improve Documentation
+**Improve documentation** — add the missing doc comment the report named:
 
-```bash
-# Check coverage
-cargo doc --no-deps
-
-# Run doc tests
-cargo test --doc
-
-# Generate private docs
-cargo doc --no-deps --document-private-items
+```rust
+/// Adds two numbers together.
+pub fn add(a: i64, b: i64) -> i64 {
+    a + b
+}
 ```
 
-## Troubleshooting
+```bash
+cargo doc --no-deps                          # Check coverage
+cargo test --doc                             # Run doc tests
+cargo doc --no-deps --document-private-items # Generate private docs
+```
 
-### cargo-geiger Errors
+Verify: re-run the relevant tool and confirm the count dropped.
+
+### Troubleshooting
+
+**cargo-geiger errors**:
 
 ```bash
-# Update tool
 cargo install cargo-geiger --force
-
-# Clear cache
 cargo clean
 cargo geiger
 ```
 
-### Binary Size Analysis Fails
+**Binary size analysis fails** — ensure a release build exists first:
 
 ```bash
-# Ensure release build exists
 cargo build --release
-
-# Run bloat
 cargo bloat --release
 ```
 
-### Documentation Warnings
+**Documentation warnings** — surface them all as errors:
 
 ```bash
-# See all warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 ```
+
+## Why this matters
+
+These three metrics each guard a property the compiler alone won't enforce. `unsafe_code = "forbid"` is the template default, so `cargo-geiger` exists to confirm that guarantee holds transitively — unsafe code bypasses Rust's safety model, and a dependency can reintroduce it silently. Binary size matters for download time and memory footprint, and `cargo-bloat` makes the cost of each dependency visible so feature trimming is an informed decision. Documentation coverage is a usability property: a well-documented public API is the difference between a crate people can adopt and one they have to reverse-engineer.
 
 ## Links
 
@@ -228,3 +200,4 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 - [cargo-bloat](https://github.com/RazrFalcon/cargo-bloat)
 - [rustdoc Documentation](https://doc.rust-lang.org/rustdoc/)
 - [Unsafe Code Guidelines](https://rust-lang.github.io/unsafe-code-guidelines/)
+- [CI Workflows reference](../template/CI-WORKFLOWS.md)

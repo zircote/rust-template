@@ -1,3 +1,7 @@
+---
+diataxis_type: how-to
+---
+
 # Customization Guide
 
 This guide covers how to customize the `rust-template` beyond the initial setup. For basic configuration (renaming the crate, updating metadata), see the main README.
@@ -336,7 +340,9 @@ To relax any of these, change `"deny"` to `"warn"` or `"allow"`:
 todo = "warn"            # Allow TODOs with a warning
 ```
 
-Note that `print_stdout` and `print_stderr` are already allowed in `crates/main.rs` via file-level attributes. This is intentional -- binary entry points typically need to print output.
+Note that `print_stdout` and `print_stderr` are already allowed in `crates/main.rs` via file-level attributes.
+
+> **Why the binary exempts the print lints:** binary entry points typically need to write output to stdout/stderr, so the file-level `#[allow]` in `crates/main.rs` is intentional. Library code stays subject to the deny.
 
 ### `clippy.toml` thresholds
 
@@ -582,7 +588,9 @@ COPY --from=builder /app/target/release/rust_template /usr/local/bin/rust_templa
 ENTRYPOINT ["/usr/local/bin/rust_template"]
 ```
 
-Distroless is preferred for production because it contains no shell or package manager, reducing the attack surface. Use Debian slim if you need to debug inside the container or require additional runtime dependencies.
+Use Debian slim if you need to debug inside the container or require additional runtime dependencies.
+
+> **Why distroless by default?** It contains no shell or package manager, which reduces the runtime attack surface. Switch to Debian slim only when you need to debug inside the container or link additional runtime libraries.
 
 ### Adding runtime dependencies
 

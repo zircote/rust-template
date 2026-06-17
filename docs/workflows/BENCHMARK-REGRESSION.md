@@ -1,97 +1,29 @@
+---
+diataxis_type: how-to
+---
 # Benchmark Regression Detection
 
-## Overview
+Automated performance benchmarking with regression detection using [Criterion.rs](https://github.com/bheisler/criterion.rs), so performance regressions are caught before they merge.
 
-Automated performance benchmarking with regression detection using [Criterion.rs](https://github.com/bheisler/criterion.rs).
+## Reference
 
-**Workflow:** `.github/workflows/benchmark-regression.yml`
-**Tool:** Criterion.rs
-**Triggers:** PR, Push to main, Manual dispatch
-**Goal:** Prevent performance regressions
+| Field | Value |
+|---|---|
+| Workflow | `.github/workflows/benchmark-regression.yml` |
+| Tool | Criterion.rs |
+| Triggers | Pull requests + manual (`workflow_dispatch`) |
+| Goal | Prevent performance regressions |
 
-## How It Works
+### CI pipeline stages
 
-1. **Baseline**: Store performance metrics from main branch
-2. **Current**: Run benchmarks on PR/current branch
-3. **Compare**: Calculate performance change vs baseline
-4. **Report**: Comment on PR with results
-5. **Update**: Save new baseline when merging to main
+The workflow runs these stages automatically:
 
-## Setup Benchmarks
+1. **Restore** — restore a cached baseline (`target/criterion`) from a prior run, if one exists.
+2. **Run** — run the benchmarks under `benches/` (if present) on the PR branch.
+3. **Report** — generate `benchmark-report.md` from the run output.
+4. **Upload** — upload the `benchmark-results` artifact (report, `target/criterion/`, raw output; 90-day retention).
 
-### Directory Structure
-
-```text
-benches/
-├── my_benchmark.rs
-└── another_benchmark.rs
-```
-
-### Example Benchmark
-
-**`benches/performance.rs`:**
-
-```rust
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rust_template::expensive_function;
-
-fn benchmark_expensive_function(c: &mut Criterion) {
-    c.bench_function("expensive_function", |b| {
-        b.iter(|| expensive_function(black_box(100)))
-    });
-}
-
-fn benchmark_with_setup(c: &mut Criterion) {
-    c.bench_function("with_setup", |b| {
-        let data = vec![1, 2, 3, 4, 5];
-        b.iter(|| {
-            process(black_box(&data))
-        })
-    });
-}
-
-criterion_group!(benches, benchmark_expensive_function, benchmark_with_setup);
-criterion_main!(benches);
-```
-
-**Add to `Cargo.toml`:**
-
-```toml
-[[bench]]
-name = "performance"
-harness = false
-```
-
-## Running Benchmarks
-
-### Locally
-
-```bash
-# Run all benchmarks
-cargo bench
-
-# Run specific benchmark
-cargo bench --bench performance
-
-# Save baseline
-cargo bench -- --save-baseline main
-
-# Compare against baseline
-cargo bench -- --baseline main
-```
-
-### CI Integration
-
-The workflow automatically:
-- Downloads baseline from main branch
-- Runs current benchmarks
-- Compares performance
-- Posts results to PR
-- Updates baseline on merge to main
-
-## Understanding Results
-
-### Benchmark Output
+### Benchmark output
 
 ```text
 expensive_function      time:   [48.123 µs 48.567 µs 49.012 µs]
@@ -99,103 +31,150 @@ expensive_function      time:   [48.123 µs 48.567 µs 49.012 µs]
                         Performance has improved.
 ```
 
-**Interpretation:**
-- **time**: Current execution time (min, median, max)
-- **change**: % change from baseline
-- **p-value**: Statistical significance (< 0.05 = significant)
+- **time**: current execution time (min, median, max).
+- **change**: percent change from baseline.
+- **p-value**: statistical significance (`< 0.05` = significant).
 
-### Performance Change
+### Performance change thresholds
 
 | Change | Interpretation | Action |
 |--------|---------------|--------|
-| < -5% | **Improvement** ✅ | Great! Document what improved |
-| -5% to +5% | **No change** ⚪ | Within noise threshold |
-| +5% to +20% | **Minor regression** ⚠️ | Investigate if acceptable |
-| > +20% | **Major regression** ❌ | Must fix before merge |
+| `< -5%` | **Improvement** ✅ | Great — document what improved |
+| `-5%` to `+5%` | **No change** ⚪ | Within noise threshold |
+| `+5%` to `+20%` | **Minor regression** ⚠️ | Investigate if acceptable |
+| `> +20%` | **Major regression** ❌ | Must fix before merge |
 
-### Statistical Significance
+### Statistical significance
 
 ```text
 change: [+2.5% +5.2% +7.8%] (p = 0.45 > 0.05)
 Change within noise threshold.
 ```
 
-**Not significant** - variation likely due to noise, not real change.
+Not significant — variation likely due to noise, not a real change.
 
 ```text
 change: [+15.2% +18.5% +21.3%] (p = 0.001 < 0.05)
 Performance has regressed.
 ```
 
-**Significant** - real performance degradation detected.
+Significant — real performance degradation detected.
 
-## Benchmark Best Practices
+### Regression detection criteria
 
-### Use `black_box`
+> **Not automated.** The workflow runs the benchmarks and uploads the results, but it does **not** gate the PR on a regression — its compare step always reports no regression. Use these criteria when reviewing the uploaded artifact (or comparing locally with `cargo bench -- --baseline …`) to decide whether a change is a real regression:
 
-```rust
-// ❌ Bad - Compiler optimizes away
-b.iter(|| expensive_function(100));
+1. **Statistical significance** (`p < 0.05`).
+2. **Magnitude** (`> 5%` slower).
+3. **Consistency** (median in the regression range).
 
-// ✅ Good - Prevents optimization
-b.iter(|| expensive_function(black_box(100)));
+### Benchmark report artifact
+
+The workflow writes a `benchmark-report.md` into the `benchmark-results` artifact (it does **not** post a PR comment). The report wraps the tail of the raw `cargo bench` output; for example:
+
+```markdown
+# Benchmark Results
+
+## Performance Summary
+
+| Benchmark | Baseline | Current | Change |
+|-----------|----------|---------|--------|
+| parse_small | 1.23 µs | 1.20 µs | -2.4% ✅ |
+| parse_large | 45.6 µs | 52.3 µs | +14.7% ⚠️ |
+| compute | 234 ns | 236 ns | +0.9% ⚪ |
+
+## Regressions Detected ⚠️
+
+**parse_large**: 14.7% slower (p < 0.01)
+- Review recent changes to parsing logic
+- Consider optimization or accept tradeoff
 ```
 
-### Avoid Setup in Measurement
+### Criterion HTML reports
 
-```rust
-// ❌ Bad - Includes allocation in measurement
-b.iter(|| {
-    let data = vec![1, 2, 3];  // Measured
-    process(&data)
-});
+Criterion generates HTML reports under `target/criterion/`:
 
-// ✅ Good - Setup outside measurement
-let data = vec![1, 2, 3];
-b.iter(|| process(black_box(&data)));
+```text
+target/criterion/
+├── expensive_function/
+│   ├── report/
+│   │   ├── index.html
+│   │   └── violin.svg
+│   └── base/
+└── report/
+    └── index.html
 ```
 
-### Benchmark Representative Sizes
+Open `target/criterion/report/index.html` to view them.
 
-```rust
-c.bench_function("small input", |b| {
-    b.iter(|| parse(black_box("short")))
-});
+## How-to
 
-c.bench_function("large input", |b| {
-    let large = "x".repeat(10_000);
-    b.iter(|| parse(black_box(&large)))
-});
+### Set up benchmarks
+
+1. Create a `benches/` directory at the crate root:
+
+   ```text
+   benches/
+   ├── my_benchmark.rs
+   └── another_benchmark.rs
+   ```
+
+2. Write a benchmark file, `benches/performance.rs`:
+
+   ```rust
+   use criterion::{black_box, criterion_group, criterion_main, Criterion};
+   use rust_template::expensive_function;
+
+   fn benchmark_expensive_function(c: &mut Criterion) {
+       c.bench_function("expensive_function", |b| {
+           b.iter(|| expensive_function(black_box(100)))
+       });
+   }
+
+   fn benchmark_with_setup(c: &mut Criterion) {
+       c.bench_function("with_setup", |b| {
+           let data = vec![1, 2, 3, 4, 5];
+           b.iter(|| {
+               process(black_box(&data))
+           })
+       });
+   }
+
+   criterion_group!(benches, benchmark_expensive_function, benchmark_with_setup);
+   criterion_main!(benches);
+   ```
+
+3. Register the bench target in `Cargo.toml`:
+
+   ```toml
+   [[bench]]
+   name = "performance"
+   harness = false
+   ```
+
+4. Verify: `cargo bench --bench performance`.
+
+### Run benchmarks locally
+
+```bash
+# Run all benchmarks
+cargo bench
+
+# Run a specific benchmark
+cargo bench --bench performance
+
+# Save a baseline
+cargo bench -- --save-baseline main
+
+# Compare against a baseline
+cargo bench -- --baseline main
 ```
 
-### Parameterized Benchmarks
+Verify: confirm the run prints `time:` and `change:` lines.
 
-```rust
-use criterion::{BenchmarkId, Criterion};
+### Configure Criterion
 
-fn bench_sizes(c: &mut Criterion) {
-    let mut group = c.benchmark_group("parse_sizes");
-
-    for size in [10, 100, 1000, 10000] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            &size,
-            |b, &size| {
-                let input = "x".repeat(size);
-                b.iter(|| parse(black_box(&input)))
-            }
-        );
-    }
-
-    group.finish();
-}
-```
-
-## Configuration
-
-### Criterion Settings
-
-**`benches/benchmark.rs`:**
+Tune sampling in `benches/benchmark.rs`:
 
 ```rust
 use criterion::{Criterion, SamplingMode};
@@ -216,9 +195,7 @@ criterion_group! {
 }
 ```
 
-### Workflow Settings
-
-**Adjust duration:**
+Adjust the CI run duration in the workflow:
 
 ```yaml
 # .github/workflows/benchmark-regression.yml
@@ -227,109 +204,53 @@ inputs:
     default: '300'  # 5 minutes
 ```
 
-## Regression Detection
+Verify: `cargo bench` and check the warm-up/measurement times in the output.
 
-### Threshold Configuration
+### Investigate a regression
 
-The workflow detects regressions using:
+1. Profile to find the hot path:
 
-1. **Statistical significance** (p < 0.05)
-2. **Magnitude** (> 5% slower)
-3. **Consistency** (median in regression range)
+   ```bash
+   cargo install flamegraph
+   cargo flamegraph --bench performance
+   ```
 
-### Manual Threshold
+   ```bash
+   perf record --call-graph dwarf cargo bench
+   perf report
+   ```
+
+2. Choose an outcome:
+   - **Fix** — optimize the code.
+   - **Accept** — document the tradeoff (e.g., correctness over speed).
+   - **Defer** — open an issue for future optimization.
+
+3. Document an accepted tradeoff in the source:
+
+   ```rust
+   // Intentional tradeoff: Added validation reduces performance by ~10%
+   // See issue #123 for optimization ideas
+   fn parse(input: &str) -> Result<Output> {
+       validate(input)?;  // New validation (slower but correct)
+       // ...
+   }
+   ```
+
+Verify: re-run `cargo bench -- --baseline main` and confirm the change is acknowledged or resolved.
+
+### Run advanced benchmarks
 
 ```bash
-# Fail if > 10% slower
+# Compare multiple baselines
+cargo bench -- --save-baseline main
+cargo bench -- --save-baseline before-refactor
+cargo bench -- --baseline before-refactor
+
+# Manual significance level
 cargo bench -- --baseline main --significance-level 0.05
 ```
 
-## Interpreting CI Reports
-
-### PR Comment Example
-
-```markdown
-# Benchmark Results
-
-## Performance Summary
-
-| Benchmark | Baseline | Current | Change |
-|-----------|----------|---------|--------|
-| parse_small | 1.23 µs | 1.20 µs | -2.4% ✅ |
-| parse_large | 45.6 µs | 52.3 µs | +14.7% ⚠️ |
-| compute | 234 ns | 236 ns | +0.9% ⚪ |
-
-## Regressions Detected ⚠️
-
-**parse_large**: 14.7% slower (p < 0.01)
-- Review recent changes to parsing logic
-- Consider optimization or accept tradeoff
-```
-
-**Action:** Investigate `parse_large` regression.
-
-## Handling Regressions
-
-### Investigate
-
-```bash
-# Profile with cargo-flamegraph
-cargo install flamegraph
-cargo flamegraph --bench performance
-
-# Check with perf
-perf record --call-graph dwarf cargo bench
-perf report
-```
-
-### Options
-
-1. **Fix** - Optimize the code
-2. **Accept** - Document tradeoff (e.g., correctness > speed)
-3. **Defer** - Create issue for future optimization
-
-### Document Acceptance
-
-```rust
-// Intentional tradeoff: Added validation reduces performance by ~10%
-// See issue #123 for optimization ideas
-fn parse(input: &str) -> Result<Output> {
-    validate(input)?;  // New validation (slower but correct)
-    // ...
-}
-```
-
-## Advanced Features
-
-### Compare Multiple Baselines
-
-```bash
-# Save different baselines
-cargo bench -- --save-baseline main
-cargo bench -- --save-baseline before-refactor
-
-# Compare
-cargo bench -- --baseline before-refactor
-```
-
-### Custom Plots
-
-Criterion generates HTML reports:
-
-```text
-target/criterion/
-├── expensive_function/
-│   ├── report/
-│   │   ├── index.html
-│   │   └── violin.svg
-│   └── base/
-└── report/
-    └── index.html
-```
-
-**View:** Open `target/criterion/report/index.html`
-
-### Throughput Measurement
+Measure throughput instead of time/iteration:
 
 ```rust
 c.bench_function("process_bytes", |b| {
@@ -339,23 +260,12 @@ c.bench_function("process_bytes", |b| {
 });
 ```
 
-**Output:** MB/s instead of time/iteration.
+Verify: throughput output reports MB/s.
 
-## Troubleshooting
+### Troubleshooting
 
-### Noisy Results
+**Noisy results** (`change: [-15% +2% +18%] (p = 0.52)`) — caused by CPU frequency scaling, background processes, or thermal throttling:
 
-```text
-change: [-15% +2% +18%] (p = 0.52)
-Change within noise threshold.
-```
-
-**Causes:**
-- CPU frequency scaling
-- Background processes
-- Thermal throttling
-
-**Solutions:**
 ```bash
 # Increase sample size
 cargo bench -- --sample-size 1000
@@ -364,29 +274,86 @@ cargo bench -- --sample-size 1000
 sudo cpupower frequency-set --governor performance
 ```
 
-### Missing Baseline
+**Missing baseline** (`Warning: No baseline found for benchmark`) — run once on the main branch to establish a baseline.
 
-```text
-Warning: No baseline found for benchmark
-```
-
-**Fix:** Run once on main branch to establish baseline.
-
-### Slow Benchmarks
+**Slow benchmarks**:
 
 ```bash
-# Reduce measurement time
 cargo bench -- --measurement-time 1
 ```
 
-## Best Practices
+### Benchmark best practices
 
-1. **Benchmark hot paths** - Focus on critical performance code
-2. **Use realistic inputs** - Benchmark with production-like data
-3. **Isolate variables** - One change at a time
-4. **Accept some variation** - ±5% is often noise
-5. **Profile before optimizing** - Use flamegraph/perf
-6. **Document tradeoffs** - Sometimes slower is better (safety, correctness)
+1. **Use `black_box`** to stop the compiler optimizing the work away:
+
+   ```rust
+   // ❌ Bad - Compiler optimizes away
+   b.iter(|| expensive_function(100));
+
+   // ✅ Good - Prevents optimization
+   b.iter(|| expensive_function(black_box(100)));
+   ```
+
+2. **Keep setup out of measurement**:
+
+   ```rust
+   // ❌ Bad - Includes allocation in measurement
+   b.iter(|| {
+       let data = vec![1, 2, 3];  // Measured
+       process(&data)
+   });
+
+   // ✅ Good - Setup outside measurement
+   let data = vec![1, 2, 3];
+   b.iter(|| process(black_box(&data)));
+   ```
+
+3. **Benchmark representative sizes**:
+
+   ```rust
+   c.bench_function("small input", |b| {
+       b.iter(|| parse(black_box("short")))
+   });
+
+   c.bench_function("large input", |b| {
+       let large = "x".repeat(10_000);
+       b.iter(|| parse(black_box(&large)))
+   });
+   ```
+
+4. **Parameterize over inputs**:
+
+   ```rust
+   use criterion::{BenchmarkId, Criterion};
+
+   fn bench_sizes(c: &mut Criterion) {
+       let mut group = c.benchmark_group("parse_sizes");
+
+       for size in [10, 100, 1000, 10000] {
+           group.bench_with_input(
+               BenchmarkId::from_parameter(size),
+               &size,
+               |b, &size| {
+                   let input = "x".repeat(size);
+                   b.iter(|| parse(black_box(&input)))
+               }
+           );
+       }
+
+       group.finish();
+   }
+   ```
+
+5. **Benchmark hot paths** — focus on critical performance code.
+6. **Use realistic inputs** — production-like data.
+7. **Isolate variables** — one change at a time.
+8. **Accept some variation** — ±5% is often noise.
+9. **Profile before optimizing** — use flamegraph/perf.
+10. **Document tradeoffs** — sometimes slower is better (safety, correctness).
+
+## Why this matters
+
+Performance is a property that erodes silently: a single PR rarely makes the code dramatically slower, but a year of unmeasured changes can. Running benchmarks on every PR and uploading the results turns that slow drift into a reviewable signal you can inspect per change. The statistical significance test (`p < 0.05`) and the noise threshold exist because microbenchmarks are jittery — without them, every run would look like a regression and the signal would be ignored. Pairing the threshold with profiling (flamegraph/perf) means a flagged regression leads to a root cause, not just a red mark. The template does not yet gate merges on a regression automatically; comparison against a baseline is done by reviewing the artifact or running `cargo bench -- --baseline …` locally.
 
 ## Links
 
@@ -394,3 +361,4 @@ cargo bench -- --measurement-time 1
 - [Benchmark Analysis](https://bheisler.github.io/criterion.rs/book/analysis.html)
 - [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph)
 - [Rust Performance Book](https://nnethercote.github.io/perf-book/)
+- [CI Workflows reference](../template/CI-WORKFLOWS.md)

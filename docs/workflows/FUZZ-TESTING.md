@@ -1,29 +1,81 @@
+---
+diataxis_type: how-to
+---
 # Fuzz Testing with cargo-fuzz
-
-## Overview
 
 Automated fuzz testing to discover crashes, panics, and edge cases using [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz).
 
-**Workflow:** `.github/workflows/fuzz-testing.yml`
-**Tool:** `cargo-fuzz` (libFuzzer)
-**Schedule:** Daily at 2 AM
-**Goal:** Find unexpected inputs that cause crashes
+## Reference
 
-## How It Works
+| Field | Value |
+|---|---|
+| Workflow | `.github/workflows/fuzz-testing.yml` |
+| Tool | `cargo-fuzz` (libFuzzer) |
+| Trigger | Manual (`workflow_dispatch`); a daily cron is present but commented out |
+| Goal | Find unexpected inputs that cause crashes |
 
-Fuzz testing generates random/mutated inputs and feeds them to your code:
+### How fuzzing works
 
-1. **Generate Inputs**: Create random or mutated test inputs
-2. **Execute**: Run target function with inputs
-3. **Monitor**: Detect crashes, panics, timeouts, memory errors
-4. **Minimize**: Reduce crashing inputs to minimal reproducible cases
-5. **Report**: Save crash artifacts for investigation
+The fuzzer generates random or mutated inputs and feeds them to a target function:
 
-**Fuzzing finds bugs traditional testing misses.**
+1. **Generate inputs** — create random or mutated test inputs.
+2. **Execute** — run the target function with each input.
+3. **Monitor** — detect crashes, panics, timeouts, and memory errors.
+4. **Minimize** — reduce a crashing input to a minimal reproducible case.
+5. **Report** — save crash artifacts for investigation.
 
-## Setup
+### CI behavior
 
-### Initialize Fuzz Directory
+The workflow runs:
+
+- **On demand** via `workflow_dispatch` (the only active trigger).
+- **Duration:** 5 minutes per target (configurable).
+
+A daily `schedule:` cron (`0 2 * * *`) is present in the workflow but commented out. Uncomment the `schedule:` block in `.github/workflows/fuzz-testing.yml` to run fuzzing daily.
+
+On a crash it creates a GitHub issue and uploads crash artifacts (90-day retention).
+
+### Successful run output (no crashes)
+
+```text
+#0  READ units: 1234
+#1  pulse  cov: 234 ft: 456 corp: 10/1234b
+...
+Done 10000 runs in 300 seconds
+```
+
+- **units**: inputs tested.
+- **cov**: code coverage.
+- **ft**: features covered.
+- **corp**: corpus size.
+
+### Crash output
+
+```text
+==1234==ERROR: AddressSanitizer: heap-buffer-overflow
+READ of size 1 at 0x...
+```
+
+The crashing input is saved to `fuzz/artifacts/<target>/crash-<hash>`.
+
+### Corpus layout
+
+```text
+fuzz/corpus/parse_input/
+├── 0a1b2c3d4e5f...  # Auto-generated interesting cases
+├── 1b2c3d4e5f6a...
+└── seed_inputs/     # Your seed corpus
+```
+
+The fuzzer automatically saves interesting inputs that reach new coverage.
+
+### Security benefits
+
+Fuzz testing finds buffer overflows, integer overflows, assertion failures, panics and unwraps, memory leaks, and logic errors triggered by edge-case inputs.
+
+## How-to
+
+### Initialize fuzzing
 
 ```bash
 # Install cargo-fuzz (requires nightly Rust)
@@ -31,17 +83,22 @@ cargo install cargo-fuzz
 
 # Initialize fuzz targets
 cargo fuzz init
-
-# Directory structure:
-# fuzz/
-# ├── Cargo.toml
-# └── fuzz_targets/
-#     └── fuzz_target_1.rs
 ```
 
-### Create Fuzz Target
+This creates:
 
-**Example: `fuzz/fuzz_targets/parse_input.rs`**
+```text
+fuzz/
+├── Cargo.toml
+└── fuzz_targets/
+    └── fuzz_target_1.rs
+```
+
+Verify: `cargo fuzz list` prints the generated target.
+
+### Create a fuzz target
+
+Write `fuzz/fuzz_targets/parse_input.rs`:
 
 ```rust
 #![no_main]
@@ -58,9 +115,7 @@ fuzz_target!(|data: &[u8]| {
 });
 ```
 
-### Structured Fuzzing
-
-For structured data, use `arbitrary`:
+For structured input, derive `Arbitrary`:
 
 ```rust
 #![no_main]
@@ -81,123 +136,115 @@ fuzz_target!(|input: FuzzInput| {
 });
 ```
 
-## Usage
+Verify: `cargo fuzz list` shows the new target.
 
-### Local Fuzzing
+### Run fuzzing locally
 
 ```bash
 # List fuzz targets
 cargo fuzz list
 
-# Run specific target for 60 seconds
+# Run a target for 60 seconds
 cargo fuzz run parse_input -- -max_total_time=60
 
-# Run with more jobs (parallel)
+# Run with more parallel jobs
 cargo fuzz run parse_input -- -jobs=4
 
-# Run with corpus (saved inputs)
+# Run against a saved corpus
 cargo fuzz run parse_input fuzz/corpus/parse_input
 ```
 
-### CI Integration
+Verify: the run prints `cov:`/`corp:` lines and ends with `Done N runs`.
 
-The workflow runs automatically:
-- **Daily** at 2 AM (scheduled)
-- **Manual** via workflow dispatch
-- **Duration:** 5 minutes per target (configurable)
+### Investigate a crash
 
-**Crash Detection:**
-- Creates GitHub issue if crashes found
-- Uploads crash artifacts (90-day retention)
+1. Reproduce with the saved artifact:
 
-## Understanding Results
+   ```bash
+   cargo fuzz run parse_input fuzz/artifacts/parse_input/crash-*
+   ```
 
-### Successful Run (No Crashes)
+2. Minimize the crashing input:
+
+   ```bash
+   cargo fuzz tmin parse_input crash_artifact
+   ```
+
+3. Add debug output to the target if needed:
+
+   ```rust
+   fuzz_target!(|data: &[u8]| {
+       eprintln!("Input length: {}", data.len());
+       if let Ok(s) = std::str::from_utf8(data) {
+           eprintln!("Input: {:?}", s);
+           let _ = parse(s);
+       }
+   });
+   ```
+
+Verify: re-running with the minimized artifact still reproduces the crash, then fix the bug and confirm it no longer does.
+
+### Manage the corpus
+
+Seed initial inputs in `fuzz/corpus/<target>/`:
+
+```bash
+mkdir -p fuzz/corpus/parse_input
+echo "valid input" > fuzz/corpus/parse_input/valid1
+echo "" > fuzz/corpus/parse_input/empty
+echo "🦀" > fuzz/corpus/parse_input/unicode
+```
+
+Verify: `cargo fuzz run parse_input fuzz/corpus/parse_input` loads the seeds.
+
+### Configure fuzzing
+
+```yaml
+# In the workflow — adjust per-target duration
+duration: '600'  # 10 minutes
+```
+
+```bash
+# Limit memory usage
+cargo fuzz run target -- -rss_limit_mb=2048
+```
+
+Add a dictionary of domain keywords at `fuzz/dict/target.dict`:
 
 ```text
-#0  READ units: 1234
-#1  pulse  cov: 234 ft: 456 corp: 10/1234b
-...
-Done 10000 runs in 300 seconds
+"keyword1"
+"keyword2"
+"special_token"
 ```
-
-- **units**: Inputs tested
-- **cov**: Code coverage
-- **ft**: Features covered
-- **corp**: Corpus size
-
-### Crash Detected
-
-```text
-==1234==ERROR: AddressSanitizer: heap-buffer-overflow
-READ of size 1 at 0x...
-```
-
-**Artifact saved:** `fuzz/artifacts/parse_input/crash-da39a3ee5e6b4b0d3255bfef95601890afd80709`
-
-**Reproduce:**
-```bash
-cargo fuzz run parse_input fuzz/artifacts/parse_input/crash-*
-```
-
-## Crash Investigation
-
-### Reproduce Crash
 
 ```bash
-# Run with specific crash input
-cargo fuzz run target_name crash_artifact
+cargo fuzz run target -- -dict=fuzz/dict/target.dict
 ```
 
-### Minimize Crash Input
+Verify: the run reports the dictionary loaded.
 
-```bash
-# Reduce to minimal crashing input
-cargo fuzz tmin target_name crash_artifact
-```
-
-### Debug
+### Common fuzz target patterns
 
 ```rust
-// Add to fuzz target for debugging
-fuzz_target!(|data: &[u8]| {
-    eprintln!("Input length: {}", data.len());
-    if let Ok(s) = std::str::from_utf8(data) {
-        eprintln!("Input: {:?}", s);
-        let _ = parse(s);
-    }
-});
-```
-
-## Common Fuzz Targets
-
-### 1. Parsers
-
-```rust
+// Parsers
 fuzz_target!(|data: &[u8]| {
     if let Ok(s) = std::str::from_utf8(data) {
         let _ = parser::parse(s);
     }
 });
-```
 
-### 2. Deserialization
-
-```rust
+// Deserialization
 fuzz_target!(|data: &[u8]| {
     let _: Result<MyStruct, _> = serde_json::from_slice(data);
 });
-```
 
-### 3. Binary Protocols
-
-```rust
+// Binary protocols
 fuzz_target!(|data: &[u8]| {
     let _ = decode_packet(data);
 });
 ```
 
-### 4. State Machines
+State machines via a sequence of arbitrary actions:
 
 ```rust
 #[derive(Arbitrary, Debug)]
@@ -215,110 +262,7 @@ fuzz_target!(|actions: Vec<Action>| {
 });
 ```
 
-## Corpus Management
-
-### Seed Corpus
-
-Create initial inputs in `fuzz/corpus/target_name/`:
-
-```bash
-mkdir -p fuzz/corpus/parse_input
-echo "valid input" > fuzz/corpus/parse_input/valid1
-echo "" > fuzz/corpus/parse_input/empty
-echo "🦀" > fuzz/corpus/parse_input/unicode
-```
-
-### Corpus Growth
-
-Fuzzer automatically saves interesting inputs:
-
-```text
-fuzz/corpus/parse_input/
-├── 0a1b2c3d4e5f...  # Auto-generated interesting cases
-├── 1b2c3d4e5f6a...
-└── seed_inputs/     # Your seed corpus
-```
-
-## Configuration
-
-### Adjust Timeout
-
-```yaml
-# In workflow
-duration: '600'  # 10 minutes
-```
-
-### Memory Limits
-
-```bash
-# Limit memory usage
-cargo fuzz run target -- -rss_limit_mb=2048
-```
-
-### Dictionary
-
-Create `fuzz/dict/target.dict` for domain-specific keywords:
-
-```text
-"keyword1"
-"keyword2"
-"special_token"
-```
-
-```bash
-cargo fuzz run target -- -dict=fuzz/dict/target.dict
-```
-
-## Troubleshooting
-
-### Slow Fuzzing
-
-```bash
-# Run with more jobs
-cargo fuzz run target -- -jobs=8
-
-# Reduce input size
-cargo fuzz run target -- -max_len=1024
-```
-
-### Out of Memory
-
-```bash
-# Limit RSS
-cargo fuzz run target -- -rss_limit_mb=2048
-
-# Reduce corpus
-rm -rf fuzz/corpus/target/*
-```
-
-### No New Coverage
-
-Fuzzer might be stuck. Try:
-
-1. **Better seed corpus**: Add diverse initial inputs
-2. **Dictionary**: Add domain keywords
-3. **Structured fuzzing**: Use `arbitrary` for complex inputs
-
-## Best Practices
-
-1. **Start simple**: Fuzz one function at a time
-2. **Use seed corpus**: Guide fuzzer with valid examples
-3. **Run long sessions**: Hours or days, not minutes
-4. **Minimize crashes**: Use `cargo fuzz tmin` for debugging
-5. **Continuous fuzzing**: Run in CI regularly
-6. **Multiple targets**: Fuzz different entry points
-
-## Security Benefits
-
-Fuzz testing finds:
-- Buffer overflows
-- Integer overflows
-- Assertion failures
-- Panics and unwraps
-- Memory leaks
-- Logic errors with edge cases
-
-## Example: Complete Fuzz Target
+A complete structured target with input constraints:
 
 ```rust
 #![no_main]
@@ -351,9 +295,41 @@ fn process_request(config: &Config) -> Result<(), Error> {
 }
 ```
 
+### Troubleshooting
+
+**Slow fuzzing**:
+
+```bash
+cargo fuzz run target -- -jobs=8
+cargo fuzz run target -- -max_len=1024
+```
+
+**Out of memory**:
+
+```bash
+cargo fuzz run target -- -rss_limit_mb=2048
+rm -rf fuzz/corpus/target/*
+```
+
+**No new coverage** — the fuzzer may be stuck. Add a better seed corpus, a dictionary, or switch to structured fuzzing with `arbitrary`.
+
+### Best practices
+
+1. **Start simple** — fuzz one function at a time.
+2. **Use a seed corpus** — guide the fuzzer with valid examples.
+3. **Run long sessions** — hours or days, not minutes.
+4. **Minimize crashes** — use `cargo fuzz tmin` for debugging.
+5. **Fuzz continuously** — run in CI regularly.
+6. **Fuzz multiple targets** — cover different entry points.
+
+## Why this matters
+
+Hand-written tests check the inputs a developer thought of; fuzzing checks the inputs nobody thought of. By mutating inputs toward new code coverage, a fuzzer drives execution into the malformed, adversarial, and boundary cases where parsers, decoders, and deserializers actually break. Because it runs unattended and saves any crash as a minimized, replayable artifact, fuzzing turns "we hope this handles bad input" into a reproducible bug report — and enabling the (commented-out) daily schedule keeps probing as the code evolves, catching regressions long-running campaigns would otherwise surface only by luck.
+
 ## Links
 
 - [cargo-fuzz Book](https://rust-fuzz.github.io/book/)
 - [libFuzzer Documentation](https://llvm.org/docs/LibFuzzer.html)
 - [Arbitrary Crate](https://docs.rs/arbitrary/)
 - [Fuzzing Rust Code](https://rust-fuzz.github.io/book/introduction.html)
+- [CI Workflows reference](../template/CI-WORKFLOWS.md)

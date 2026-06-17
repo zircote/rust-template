@@ -1,3 +1,7 @@
+---
+diataxis_type: how-to
+---
+
 # Template Configuration Guide
 
 > How to configure your new repository after creating it from the rust-template.

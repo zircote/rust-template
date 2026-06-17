@@ -1,3 +1,6 @@
+---
+diataxis_type: reference
+---
 # Documentation Index
 
 > All documentation for the rust_template project.
@@ -83,6 +86,14 @@ Detailed reference material organized by topic.
 | Document | Description |
 |----------|-------------|
 | [Deployment Guide](DEPLOYMENT.md) | Comprehensive deployment instructions |
+
+### Explanation
+
+Design rationale and trade-offs — the "why" behind the template.
+
+| Document | Description |
+|----------|-------------|
+| [Template Architecture](explanation/architecture.md) | Why `crates/` not `src/`, the CI orchestration model, the `publish = false` gate, attested delivery, lint philosophy, and library conventions |
 
 ## Architectural Decision Records
 

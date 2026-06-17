@@ -27,6 +27,10 @@ path = "crates/lib.rs"
 name = "rust_template"
 path = "crates/main.rs"
 
+[[bench]]
+name = "benchmarks"
+harness = false
+
 [dependencies]
 # Core dependencies
 thiserror = "2.0.18"
@@ -46,6 +50,10 @@ thiserror = "2.0.18"
 # Testing
 proptest = "1.11.0"
 test-case = "3.3.1"
+
+# Benchmarking (criterion; default features off to keep the dep tree lean
+# and supply-chain surface small — see benches/benchmarks.rs)
+criterion = { version = "0.8.2", default-features = false }
 
 # Async testing (uncomment if using tokio)
 # tokio-test = "0.4"

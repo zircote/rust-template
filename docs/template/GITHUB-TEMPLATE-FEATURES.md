@@ -1,3 +1,7 @@
+---
+diataxis_type: reference
+---
+
 # GitHub Template Repository Features
 
 > What copies when someone clicks **"Use this template"** — and what doesn't.

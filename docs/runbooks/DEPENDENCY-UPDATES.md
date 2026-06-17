@@ -1,3 +1,7 @@
+---
+diataxis_type: how-to
+---
+
 # Dependency Updates
 
 Runbook for managing Cargo and GitHub Actions dependencies in rust-template.

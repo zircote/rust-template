@@ -1,3 +1,7 @@
+---
+diataxis_type: reference
+---
+
 # CI/CD Workflows Reference
 
 Comprehensive guide to every GitHub Actions workflow included in the

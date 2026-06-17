@@ -1,3 +1,7 @@
+---
+diataxis_type: how-to
+---
+
 # Security Incident Response
 
 Runbook for handling security vulnerabilities in rust-template. Based on the project's [Security Policy](../../SECURITY.md).

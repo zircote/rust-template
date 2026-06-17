@@ -1,3 +1,6 @@
+---
+diataxis_type: reference
+---
 # Docker Multi-Registry Distribution
 
 ## Overview
@@ -275,7 +278,9 @@ Add provenance and SBOM:
 - **Lifecycle policies** - Auto-delete old images
 - **IAM integration** - AWS permissions
 
-## Security Best Practices
+## Security Best Practices (how-to)
+
+> The registry list, tagging, and metadata sections above are reference; this section and the troubleshooting snippets below are task-oriented guidance.
 
 ### 1. Use Specific Tags
 

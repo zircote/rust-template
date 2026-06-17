@@ -54,6 +54,15 @@ export default defineConfig({
                     items: [{ label: "Introduction", slug: "index" }],
                 },
                 {
+                    label: "Tutorials",
+                    items: [
+                        {
+                            label: "Your First Project",
+                            slug: "tutorials/first-project",
+                        },
+                    ],
+                },
+                {
                     label: "Getting Started",
                     items: [
                         {
@@ -124,6 +133,15 @@ export default defineConfig({
                         {
                             label: "Testing",
                             slug: "reference/testing",
+                        },
+                    ],
+                },
+                {
+                    label: "Explanation",
+                    items: [
+                        {
+                            label: "Architecture & Design",
+                            slug: "explanation/architecture",
                         },
                     ],
                 },

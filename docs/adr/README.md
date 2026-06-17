@@ -1,3 +1,6 @@
+---
+diataxis_type: how-to
+---
 # Architectural Decision Records
 
 This directory contains Architectural Decision Records (ADRs) for the `rust_template` project.

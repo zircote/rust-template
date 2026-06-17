@@ -1,3 +1,6 @@
+---
+diataxis_type: explanation
+---
 # Documentation Directory Structure
 
 ## Status

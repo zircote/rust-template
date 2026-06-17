@@ -1,65 +1,43 @@
+---
+diataxis_type: how-to
+---
 # Mutation Testing with cargo-mutants
 
-## Overview
+Automated mutation testing to validate test suite effectiveness using [cargo-mutants](https://github.com/sourcefrog/cargo-mutants) — it measures whether your tests actually catch bugs, not just whether they run.
 
-Automated mutation testing to validate test suite effectiveness using [cargo-mutants](https://github.com/sourcefrog/cargo-mutants).
+## Reference
 
-**Workflow:** `.github/workflows/mutation-testing.yml`
-**Tool:** `cargo-mutants`
-**Triggers:** PR (on src/tests changes), Manual dispatch
-**Goal:** Detect weak or missing tests
+| Field | Value |
+|---|---|
+| Workflow | `.github/workflows/mutation-testing.yml` |
+| Tool | `cargo-mutants` |
+| Triggers | PR (on `crates/`/`tests/` changes), manual dispatch |
+| Goal | Detect weak or missing tests |
 
-## How It Works
+### How mutation testing works
 
-Mutation testing modifies your code (introduces "mutants") and runs tests to see if they catch the changes:
+cargo-mutants modifies your code (introduces "mutants") and runs the test suite against each change:
 
-1. **Generate Mutants**: Modify code in systematic ways (e.g., change `+` to `-`, `>` to `<`)
-2. **Run Tests**: Execute test suite against each mutant
-3. **Score**: % of mutants caught by tests = test quality score
+1. **Generate mutants** — modify code systematically (e.g. `+` to `-`, `>` to `<`).
+2. **Run tests** — execute the suite against each mutant.
+3. **Score** — the percentage of mutants caught by tests is the test-quality score.
 
-**Good tests catch mutants. Missed mutants = test gaps.**
+Good tests catch mutants; a surviving (missed) mutant marks a test gap.
 
-## Mutation Types
+### Mutation types
 
-cargo-mutants generates these mutations:
+| Category | Example |
+|---|---|
+| Binary operators | `+` → `-`, `*` → `/`, `&&` → `\|\|` |
+| Comparison operators | `>` → `<`, `==` → `!=` |
+| Return values | Return a default instead of the computed value |
+| Function bodies | Replace with a default/empty implementation |
 
-- **Binary operators**: `+` → `-`, `*` → `/`, `&&` → `||`
-- **Comparison operators**: `>` → `<`, `==` → `!=`
-- **Return values**: Return default value instead of computed value
-- **Function bodies**: Replace with default/empty implementation
+### CI behavior
 
-## Usage
+The workflow runs automatically on PRs when `crates/`, `tests/`, `Cargo.toml`, or `Cargo.lock` change. It uploads the `mutation-test-report` artifact, available via **Actions → Artifacts → mutation-test-report**.
 
-### Local Testing
-
-```bash
-# Install cargo-mutants
-cargo install cargo-mutants
-
-# Run mutation tests
-cargo mutants
-
-# Test specific file
-cargo mutants --file crates/lib.rs
-
-# Limit execution time
-cargo mutants --timeout 300
-
-# Generate JSON output
-cargo mutants --output mutants.out --json
-```
-
-### CI Integration
-
-The workflow runs automatically on PRs when `src/` or `tests/` change. Results posted as PR comment.
-
-**View Results:**
-- PR comments (automatic)
-- Actions → Artifacts → mutation-test-report
-
-## Understanding Results
-
-### Summary Output
+### Summary output
 
 ```text
 Total mutants: 50
@@ -69,15 +47,15 @@ Timeout: 0
 Score: 90%
 ```
 
-- **Total**: Number of mutations generated
-- **Caught**: Mutations detected by tests (good!)
-- **Missed**: Mutations not caught (test gaps)
-- **Timeout**: Mutations causing infinite loops
-- **Score**: `(caught / total) * 100`
+- **Total**: mutations generated.
+- **Caught**: mutations detected by tests (good).
+- **Missed**: mutations not caught (test gaps).
+- **Timeout**: mutations causing infinite loops.
+- **Score**: `(caught / total) * 100`.
 
-**Target: ≥80% mutation score**
+**Target: ≥80% mutation score.**
 
-### Missed Mutants Report
+### Missed mutant report
 
 ```text
 Function: calculate_total
@@ -88,20 +66,57 @@ Status: MISSED
 This mutant survived testing, indicating missing test coverage.
 ```
 
-**Action:** Add test case that would fail if `+` became `-`.
+### Score interpretation
 
-## Improving Mutation Score
+| Score | Quality |
+|---|---|
+| `< 50%` | Critical test gaps |
+| `50-80%` | Needs improvement |
+| `≥80%` | Good coverage |
+| `≥95%` | Excellent coverage |
 
-### Example: Missed Mutant
+### Why mutants survive
 
-**Original Code:**
+1. **Missing tests** — the function is not tested at all.
+2. **Weak assertions** — tests don't verify actual behavior.
+3. **Dead code** — code that never executes (remove it).
+4. **Equivalent mutants** — the mutation doesn't change behavior (rare).
+
+## How-to
+
+### Run mutation tests locally
+
+```bash
+# Install cargo-mutants
+cargo install cargo-mutants
+
+# Run mutation tests
+cargo mutants
+
+# Test a specific file
+cargo mutants --file crates/lib.rs
+
+# Limit execution time
+cargo mutants --timeout 300
+
+# Generate JSON output
+cargo mutants --output mutants.out --json
+```
+
+Verify: the run prints a `Score:` line.
+
+### Close a missed mutant
+
+A weak test lets a mutant survive. Given:
+
 ```rust
 pub fn add(a: i32, b: i32) -> i32 {
     a + b
 }
 ```
 
-**Test (Inadequate):**
+this test passes even when `+` becomes `-` (`2 - 2 = 0`, but the assertion only checks `add(2, 2)`):
+
 ```rust
 #[test]
 fn test_add() {
@@ -109,10 +124,8 @@ fn test_add() {
 }
 ```
 
-**Mutant:** `a + b` → `a - b`
-**Result:** Test passes with `2 - 2 = 0` (wrong!)
+Add cases that distinguish the operators:
 
-**Fix: Add More Test Cases**
 ```rust
 #[test]
 fn test_add() {
@@ -122,46 +135,36 @@ fn test_add() {
 }
 ```
 
-### Common Patterns
-
-#### 1. Test Edge Cases
+Cover the recurring gap categories:
 
 ```rust
-// Catch comparison mutations
+// Catch comparison mutations with boundary values
 #[test]
 fn test_bounds() {
     assert!(is_valid(0));    // boundary
     assert!(is_valid(100));  // boundary
     assert!(!is_valid(101)); // just outside
 }
-```
 
-#### 2. Test Error Paths
-
-```rust
-// Ensure error conditions are tested
+// Catch missing error-path tests
 #[test]
 fn test_error() {
     assert!(parse("").is_err());
     assert!(parse("invalid").is_err());
 }
-```
 
-#### 3. Test Return Values
-
-```rust
-// Don't just check success, verify values
+// Catch return-value mutations — assert the value, not just success
 #[test]
 fn test_compute() {
     assert_eq!(compute(5), 25);  // Not just assert!(compute(5) > 0)
 }
 ```
 
-## Configuration
+Verify: re-run `cargo mutants --file <file>` and confirm the mutant is now caught.
 
-### Exclude Files
+### Configure cargo-mutants
 
-Create `.cargo-mutants.toml`:
+Exclude files in `.cargo-mutants.toml`:
 
 ```toml
 [mutants]
@@ -171,56 +174,23 @@ exclude_files = [
 ]
 ```
 
-### Timeouts
+Set a per-mutant timeout in the workflow:
 
 ```yaml
-# In workflow
 cargo mutants --timeout 300  # 5 minutes per mutant
 ```
 
-### Target Specific Functions
+Target specific functions:
 
 ```bash
-# Test only changed functions
 cargo mutants --file crates/lib.rs --re "fn calculate"
 ```
 
-## Interpreting Low Scores
+Verify: `cargo mutants` runs only over the configured scope.
 
-**Score < 50%**: Critical test gaps
-**Score 50-80%**: Needs improvement
-**Score ≥80%**: Good coverage
-**Score ≥95%**: Excellent coverage
+### Skip equivalent mutants
 
-### Why Mutants Survive
-
-1. **Missing tests**: Function not tested at all
-2. **Weak assertions**: Tests don't verify actual behavior
-3. **Dead code**: Code that never executes (remove it)
-4. **Equivalent mutants**: Mutation doesn't change behavior (rare)
-
-## Troubleshooting
-
-### Too Slow
-
-```bash
-# Run in parallel
-cargo mutants --jobs 4
-
-# Test changed files only
-cargo mutants --file crates/changed_file.rs
-```
-
-### Timeouts
-
-```bash
-# Increase timeout for slow tests
-cargo mutants --timeout 600
-```
-
-### False Positives
-
-Some mutants are equivalent (don't change behavior):
+Some mutants don't change behavior and will always survive:
 
 ```rust
 // These are equivalent
@@ -228,17 +198,7 @@ fn example() -> bool { true }
 fn example() -> bool { return true; }
 ```
 
-**Action:** Accept these or skip with `#[mutants::skip]`.
-
-## Best Practices
-
-1. **Run locally** before pushing to catch issues early
-2. **Focus on critical paths** first (public API, core logic)
-3. **Don't chase 100%** - diminishing returns above 90%
-4. **Use with coverage** - mutation testing complements code coverage
-5. **Add tests incrementally** - fix one missed mutant at a time
-
-## Skipping Mutations
+Skip a function the analyzer can't reason about:
 
 ```rust
 #[mutants::skip]  // Skip entire function
@@ -247,8 +207,41 @@ pub fn generated_code() -> i32 {
 }
 ```
 
+Verify: the skipped function no longer appears in the mutant list.
+
+### Troubleshooting
+
+**Too slow**:
+
+```bash
+cargo mutants --jobs 4
+cargo mutants --file crates/changed_file.rs
+```
+
+**Timeouts**:
+
+```bash
+cargo mutants --timeout 600
+```
+
+**False positives** — equivalent mutants; accept them or annotate with `#[mutants::skip]`.
+
+### Best practices
+
+1. **Run locally** before pushing to catch gaps early.
+2. **Focus on critical paths** first (public API, core logic).
+3. **Don't chase 100%** — diminishing returns above 90%.
+4. **Use with coverage** — mutation testing complements line coverage.
+5. **Fix incrementally** — one missed mutant at a time.
+
+## Why this matters
+
+Line coverage tells you a line ran; it cannot tell you whether a test would notice if that line were wrong. Mutation testing closes exactly that blind spot — by deliberately breaking the code and checking whether any test fails, it distinguishes assertions that verify behavior from tests that merely execute it. A high coverage number paired with a low mutation score is the signature of tautological tests, and surfacing that gap on PRs (where `crates/` or `tests/` changed) keeps test quality from quietly decaying as the codebase grows.
+
 ## Links
 
 - [cargo-mutants Documentation](https://mutants.rs/)
 - [Mutation Testing Overview](https://en.wikipedia.org/wiki/Mutation_testing)
 - [Best Practices Guide](https://mutants.rs/guide.html)
+- [Coverage](COVERAGE.md)
+- [CI Workflows reference](../template/CI-WORKFLOWS.md)
