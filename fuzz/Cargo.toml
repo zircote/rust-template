@@ -1,0 +1,27 @@
+# cargo-fuzz harness crate. Standalone (its own [workspace]) because it builds
+# on the nightly toolchain with libFuzzer instrumentation, independent of the
+# parent crate's stable build. Run with: cargo +nightly fuzz run process
+[package]
+name = "rust_template-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.rust_template]
+path = ".."
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "process"
+path = "fuzz_targets/process.rs"
+test = false
+doc = false
+bench = false
