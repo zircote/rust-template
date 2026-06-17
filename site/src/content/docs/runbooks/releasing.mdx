@@ -3,7 +3,11 @@ title: "Releasing"
 description: "Step-by-step release process."
 ---
 
+# Releasing
+
 End-to-end runbook for creating, monitoring, and rolling back releases of rust-template.
+
+> **Prefer the `/release` skill.** Releases are orchestrated end-to-end by the `/release` skill (`.claude/skills/release/SKILL.md`): release-prep PR, tag, monitoring of every workflow chain, and independent workstation verification. The manual procedure below is the same process the skill drives.
 
 ## Version Numbering (SemVer)
 
@@ -21,13 +25,15 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/):
 
 ## Prerequisites
 
-### Required Secrets
+### Required Secrets and Setup
 
-Configure in GitHub repository settings (**Settings > Secrets and variables > Actions**):
+Configure in GitHub repository settings (**Settings > Secrets and variables > Actions**) and on crates.io:
 
-| Secret | Purpose | How to generate |
+| Item | Purpose | How to set up |
 |---|---|---|
-| `CARGO_REGISTRY_TOKEN` | Publish to crates.io | https://crates.io/settings/tokens (scope: `publish-update`) |
+| crates.io Trusted Publishing | Publish to crates.io via OIDC — no token secret exists | One-time, on crates.io: crate **Settings > Trusted Publishing** > add this repo, workflow `publish.yml`, environment `copilot` |
+| `HOMEBREW_TAP_TOKEN` (secret, optional) | Push formula updates to your Homebrew tap | Fine-grained PAT with write access to `{owner}/homebrew-tap` |
+| `HOMEBREW_TAP_REPO` (variable, optional) | Override the tap repo name (default `homebrew-tap`) | **Settings > Secrets and variables > Actions > Variables** |
 | `GITHUB_TOKEN` | Provided automatically | No setup needed |
 
 ### Permissions
@@ -95,11 +101,13 @@ Pushing a `v*.*.*` tag triggers these workflows in parallel:
 
 | Workflow | File | What it does |
 |---|---|---|
-| **Release** | `release-create.yml` | Builds binaries for 5 platform targets, generates changelog via git-cliff, creates a GitHub Release with assets |
-| **Changelog** | `release-create.yml` | Regenerates `CHANGELOG.md` and commits it to `main` |
-| **Docker** | `release-docker.yml` | Builds multi-platform images (linux/amd64, linux/arm64), pushes to `ghcr.io/zircote/rust-template` with version + `latest` tags |
-| **Publish** | `release-publish.yml` | Runs pre-publish checks and publishes to crates.io (if enabled and tag-triggered) |
-| **Signed Releases** | `release-sign.yml` | Signs all release assets with Sigstore Cosign, generates SHA256/SHA512 checksums |
+| **Release** | `release.yml` | Resolves bin/version from `cargo metadata`, builds 5 platform binaries (`{bin}-{version}-{platform}`) with SLSA build provenance, generates + attests a CycloneDX SBOM, verifies every attestation **fail-closed**, then creates the GitHub Release with auto-generated notes and a `{bin}-{version}-checksums.txt` file |
+| **Publish** | `publish.yml` | Runs pre-publish checks, publishes to crates.io via Trusted Publishing (OIDC), then downloads the registry-served `.crate`, byte-compares it, and attests it |
+| **Pipeline (container)** | `pipeline.yml` | Builds multi-platform images (linux/amd64, linux/arm64), pushes to `ghcr.io/zircote/rust-template` with version + `latest` tags; images are signed/attested by the central signer workflow and verified fail-closed |
+
+After the Release workflow completes, `package-homebrew.yml` fires via `workflow_run` and regenerates the source formula in `{owner}/homebrew-tap`.
+
+**Never re-run `release.yml` against an existing tag.** Builds are not reproducible; a re-run would overwrite published assets with different bytes, violating the immutability the attestations protect.
 
 ---
 
@@ -127,11 +135,14 @@ gh run view <run-id> --log-failed
 
 | Stage | Expected duration | Common failure point |
 |---|---|---|
-| Create Release | ~1 min | git-cliff config issues |
-| Build Binaries | ~5-10 min | Cross-compilation (especially ARM64 Linux) |
-| Docker Build | ~5-10 min | Buildx multi-platform, registry auth |
-| Publish (crates.io) | ~3 min | Token issues, pre-publish checks |
-| Signed Releases | ~2 min | Cosign signing |
+| Build Binaries (5 legs) | ~5-10 min | The macos-amd64 leg (cross-target on `macos-latest`) |
+| Test + Cargo Audit gates | ~3 min | New advisory in `Cargo.lock` (audit scans the raw lockfile; deny may not have flagged it) |
+| SBOM (generate + attest) | ~1 min | Attestation permissions (`id-token`, `attestations`) |
+| Verify Attestations | &lt;1 min | Fail-closed gate: any missing/unverifiable attestation blocks the release |
+| Create Release | ~1 min | Only runs on tags, after verify passes |
+| Publish (crates.io) | ~3 min | Trusted Publishing config missing, pre-publish checks |
+| Docker chain (pipeline) | ~5-10 min | Buildx multi-platform, central signer/verify |
+| Homebrew (after Release) | ~2 min | `workflow_run` trigger, tap token |
 
 ---
 
@@ -143,14 +154,23 @@ Run through this after all workflows complete.
   ```bash
   gh release view vX.Y.Z
   ```
-- [ ] **All 5 binary assets** are attached:
-  - `rust_template-linux-amd64`
-  - `rust_template-linux-arm64`
-  - `rust_template-macos-amd64`
-  - `rust_template-macos-arm64`
-  - `rust_template-windows-amd64.exe`
-- [ ] **Checksums and signatures** are attached (`SHA256SUMS`, `SHA512SUMS`, `*.sig` files)
-- [ ] **Release notes** are generated correctly from conventional commits
+- [ ] **All 7 assets** are attached (version embedded in every name):
+  - `rust_template-X.Y.Z-linux-amd64`
+  - `rust_template-X.Y.Z-linux-arm64`
+  - `rust_template-X.Y.Z-macos-amd64`
+  - `rust_template-X.Y.Z-macos-arm64`
+  - `rust_template-X.Y.Z-windows-amd64.exe`
+  - `rust_template-X.Y.Z-sbom.cdx.json`
+  - `rust_template-X.Y.Z-checksums.txt`
+- [ ] **Attestations verify** from an independent machine (full reference: [SECURITY.md](https://github.com/zircote/rust-template/blob/main/SECURITY.md#verifying-release-artifacts)):
+  ```bash
+  gh release download vX.Y.Z --repo zircote/rust-template
+  gh attestation verify rust_template-X.Y.Z-linux-amd64 --repo zircote/rust-template
+  gh attestation verify rust_template-X.Y.Z-linux-amd64 --repo zircote/rust-template \
+    --predicate-type https://cyclonedx.org/bom
+  shasum -a 256 -c rust_template-X.Y.Z-checksums.txt
+  ```
+- [ ] **Release notes** are generated correctly
 - [ ] **Docker image** is available:
   ```bash
   docker pull ghcr.io/zircote/rust-template:vX.Y.Z
@@ -161,17 +181,19 @@ Run through this after all workflows complete.
   docker pull ghcr.io/zircote/rust-template:latest
   docker run --rm ghcr.io/zircote/rust-template:latest --version
   ```
-- [ ] **crates.io** package updated (if publishing is enabled):
+- [ ] **crates.io** package updated, and the served `.crate` attestation verifies:
   ```bash
-  cargo install rust_template@X.Y.Z
+  curl -fsSL -A 'release-check' \
+    -O https://static.crates.io/crates/rust_template/rust_template-X.Y.Z.crate
+  gh attestation verify rust_template-X.Y.Z.crate --repo zircote/rust-template
   # Or check: https://crates.io/crates/rust_template
   ```
-- [ ] **CHANGELOG.md** on `main` updated by the changelog workflow
+- [ ] **Homebrew formula** updated in the tap (a `package-homebrew.yml` run appeared after Release completed)
 - [ ] Download and test a binary on at least one platform:
   ```bash
-  wget https://github.com/zircote/rust-template/releases/download/vX.Y.Z/rust_template-linux-amd64
-  chmod +x rust_template-linux-amd64
-  ./rust_template-linux-amd64 --version
+  wget https://github.com/zircote/rust-template/releases/download/vX.Y.Z/rust_template-X.Y.Z-linux-amd64
+  chmod +x rust_template-X.Y.Z-linux-amd64
+  ./rust_template-X.Y.Z-linux-amd64 --version
   ```
 
 ---
@@ -272,9 +294,11 @@ cargo yank --version X.Y.Z
 
 ---
 
-## Changelog Generation
+## Changelog and Release Notes
 
-Changelogs are generated automatically by [git-cliff](https://git-cliff.org/) from conventional commits:
+`CHANGELOG.md` is maintained by hand (Keep a Changelog format) and updated **before** tagging: the release-prep step moves the `## [Unreleased]` entries under a new `## [X.Y.Z] - <date>` heading and updates the compare links (the `/release` skill does this in the prep PR). GitHub Release notes are auto-generated by the Release workflow (`generate_release_notes: true`).
+
+Conventional commit prefixes still map cleanly onto changelog sections:
 
 | Commit prefix | Changelog section |
 |---|---|
@@ -289,7 +313,7 @@ Changelogs are generated automatically by [git-cliff](https://git-cliff.org/) fr
 **Best practices:**
 - Use scoped prefixes for clarity: `feat(auth): add JWT validation`
 - Include `BREAKING CHANGE:` in the commit body for breaking changes
-- The release workflow (git-cliff) generates per-release notes; the changelog workflow regenerates the full `CHANGELOG.md`
+- A release with an empty `[Unreleased]` section is a red flag — stop and confirm what the release contains
 
 ---
 
@@ -299,7 +323,7 @@ Changelogs are generated automatically by [git-cliff](https://git-cliff.org/) fr
 
 - **URL:** https://github.com/zircote/rust-template/releases
 - **Platforms:** Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64)
-- **Signatures:** Cosign keyless signing + SHA256/SHA512 checksums
+- **Attestations:** SLSA build provenance + CycloneDX SBOM attestation per binary, single `{bin}-{version}-checksums.txt` file; verify per [SECURITY.md](https://github.com/zircote/rust-template/blob/main/SECURITY.md#verifying-release-artifacts)
 
 ### Docker (GHCR)
 
@@ -312,14 +336,19 @@ Changelogs are generated automatically by [git-cliff](https://git-cliff.org/) fr
 ### crates.io
 
 - **Package:** https://crates.io/crates/rust_template
-- **Note:** Publishing is disabled by default in the template. Enable by uncommenting the tag trigger in `publish.yml` and setting `CARGO_REGISTRY_TOKEN`.
+- **Note:** Publishing runs on every `v*.*.*` tag via crates.io Trusted Publishing (OIDC, no token secret). It requires the one-time Trusted Publishing setup described under Prerequisites; without it, the publish job fails and the other release channels are unaffected.
+
+### Homebrew Tap
+
+- **Tap:** `{owner}/homebrew-tap` (override with the `HOMEBREW_TAP_REPO` variable)
+- **Formula:** source formula generated from Cargo.toml metadata after each release
 
 ### Install Methods
 
 ```bash
 # From GitHub release (Linux)
-wget https://github.com/zircote/rust-template/releases/download/vX.Y.Z/rust_template-linux-amd64
-chmod +x rust_template-linux-amd64
+wget https://github.com/zircote/rust-template/releases/download/vX.Y.Z/rust_template-X.Y.Z-linux-amd64
+chmod +x rust_template-X.Y.Z-linux-amd64
 
 # From Docker
 docker pull ghcr.io/zircote/rust-template:vX.Y.Z
@@ -338,9 +367,11 @@ cargo install --git https://github.com/zircote/rust-template
 | Problem | Cause | Fix |
 |---|---|---|
 | Release workflow fails at build | Cargo.toml version doesn't match tag | Ensure `version = "X.Y.Z"` matches tag `vX.Y.Z` |
-| ARM64 Linux build fails | Missing cross-compiler | The workflow installs `gcc-aarch64-linux-gnu`; check the install step |
+| macos-amd64 build fails | Cross-target leg (`x86_64-apple-darwin` on `macos-latest`) | Check the `targets:` input on the toolchain step; the other 4 legs build natively |
+| Cargo Audit gate fails | Real advisory in `Cargo.lock` | Fix the dependency (usually `cargo update <crate>`) via a normal PR, then restart the release |
+| Verify Attestations job fails | Missing/unverifiable attestation | The fail-closed gate worked: the release was never created. Fix the cause and release with a **new** tag — never re-run against an existing one |
 | Docker push fails | Insufficient permissions | Verify workflow permissions include `packages: write` |
-| crates.io publish fails | Missing or expired token | Regenerate `CARGO_REGISTRY_TOKEN` in repo secrets |
-| Changelog not updated | git-cliff config error | Check `cliff.toml` and the `fetch-depth: 0` checkout |
-| Signing fails | Cosign OIDC issue | Check `id-token: write` permission in `signed-releases.yml` |
+| crates.io publish fails ("No Trusted Publishing config found") | Trusted Publishing not configured | One-time setup on crates.io: workflow `publish.yml`, environment `copilot`. Then `gh workflow run publish.yml --ref vX.Y.Z` |
+| Homebrew formula not updated | `workflow_run` missed or tap token missing | `gh workflow run package-homebrew.yml -f version=X.Y.Z -f dry_run=false`; check `HOMEBREW_TAP_TOKEN` |
+| Attestation step fails | Missing permissions | Check `id-token: write` and `attestations: write` on the job in `release.yml` / `publish.yml` |
 | Tag push doesn't trigger workflows | Tag format wrong | Must match `v*.*.*` pattern exactly (e.g., `v1.0.0`, not `1.0.0`) |

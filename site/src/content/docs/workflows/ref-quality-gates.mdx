@@ -1,0 +1,27 @@
+---
+title: "quality-gates"
+description: "Reference for the quality-gates GitHub Actions workflow."
+sidebar:
+  badge:
+    text: "Other"
+    variant: "note"
+---
+
+**Source:** [`.github/workflows/quality-gates.yml`](https://github.com/zircote/rust-template/blob/main/.github/workflows/quality-gates.yml)
+
+## Triggers
+
+| Event |
+|---|
+| `push` |
+| `pull_request` |
+| `schedule` |
+| `workflow_dispatch` |
+
+## Jobs
+
+- `sast`
+- `sca`
+- `posture`
+- `trivy`
+
