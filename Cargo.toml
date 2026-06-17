@@ -12,11 +12,14 @@ documentation = "https://docs.rs/rust_template"
 readme = "README.md"
 keywords = ["template", "rust", "example"]
 categories = ["development-tools"]
-# Template repos publish nothing. This single switch disables crates.io
-# publishing, GitHub Release creation, and Homebrew tap updates (the
+# Gates EXTERNAL publication only. This single switch disables crates.io
+# publishing, the container image push, and Homebrew tap updates (the
 # workflows read it via `cargo metadata` at runtime) — and cargo itself
-# refuses `cargo publish` while it is set. DELETE this line in a real
-# project to arm the release/publish/homebrew channels.
+# refuses `cargo publish` while it is set. It does NOT gate GitHub Releases:
+# a pushed tag always produces an attested GitHub Release (binaries + SBOM +
+# source snapshot), because a release is a tag primitive, not a publish.
+# DELETE this line in a real project to arm the crates.io / container /
+# Homebrew channels.
 publish = false
 
 [lib]
