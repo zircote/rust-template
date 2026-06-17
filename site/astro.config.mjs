@@ -188,28 +188,8 @@ export default defineConfig({
                                     slug: "workflows/ref-docs-deploy",
                                 },
                                 {
-                                    label: "release-create",
-                                    slug: "workflows/ref-release-create",
-                                },
-                                {
                                     label: "release-docker",
                                     slug: "workflows/ref-release-docker",
-                                },
-                                {
-                                    label: "release-packages",
-                                    slug: "workflows/ref-release-packages",
-                                },
-                                {
-                                    label: "release-publish",
-                                    slug: "workflows/ref-release-publish",
-                                },
-                                {
-                                    label: "release-sbom",
-                                    slug: "workflows/ref-release-sbom",
-                                },
-                                {
-                                    label: "release-sign",
-                                    slug: "workflows/ref-release-sign",
                                 },
                                 {
                                     label: "docker-hub",
@@ -230,10 +210,6 @@ export default defineConfig({
                                 {
                                     label: "mutation-testing",
                                     slug: "workflows/ref-mutation-testing",
-                                },
-                                {
-                                    label: "codeql-analysis",
-                                    slug: "workflows/ref-codeql-analysis",
                                 },
                                 {
                                     label: "secrets-scan",
@@ -315,6 +291,10 @@ export default defineConfig({
                 {
                     label: "Security",
                     items: [
+                        {
+                            label: "Attested Delivery",
+                            slug: "security/attested-delivery",
+                        },
                         {
                             label: "Signed Releases",
                             slug: "security/signed-releases",
