@@ -1,5 +1,9 @@
 # Build stage
-FROM rust:1.92-slim AS builder
+# Base images are pinned by digest (OpenSSF Scorecard: Pinned-Dependencies).
+# The :tag is kept alongside the digest for human readability; Dependabot's
+# docker ecosystem keeps the digest fresh. Refresh with:
+#   docker buildx imagetools inspect <image> --format '{{.Manifest.Digest}}'
+FROM rust:1.92-slim@sha256:bf3368a992915f128293ac76917ab6e561e4dda883273c8f5c9f6f8ea37a378e AS builder
 
 WORKDIR /app
 
@@ -28,8 +32,10 @@ COPY crates/ ./crates/
 # Build actual binary
 RUN cargo build --release
 
-# Runtime stage - use distroless for minimal attack surface
-FROM gcr.io/distroless/cc-debian12:latest
+# Runtime stage - use distroless for minimal attack surface.
+# Pinned by digest (no :latest) to satisfy Scorecard Pinned-Dependencies and
+# Trivy DS-0001; Dependabot's docker ecosystem keeps the digest fresh.
+FROM gcr.io/distroless/cc-debian12@sha256:d703b626ba455c4e6c6fbe5f36e6f427c85d51445598d564652a2f334179f96e
 
 # Copy binary from builder
 COPY --from=builder /app/target/release/rust_template /usr/local/bin/rust_template
