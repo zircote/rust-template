@@ -64,9 +64,10 @@ jobs:
 
       - name: Build Astro site
         working-directory: site
-        run: |
-          npx astro build \
-            --site https://zircote.github.io/rust-template
+        # site + base come from astro.config.mjs. Do not pass --site here:
+        # overriding it with a path segment double-counts against `base` and
+        # breaks asset URLs.
+        run: npx astro build
 
       - name: Embed rustdoc
         run: |

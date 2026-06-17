@@ -3,7 +3,12 @@ import starlight from "@astrojs/starlight";
 import astroMermaid from "astro-mermaid";
 
 export default defineConfig({
-    site: "https://zircote.github.io/rust-template",
+    // `site` is the deployment ORIGIN; `base` is the path the project is
+    // served under (GitHub Pages serves project sites at <domain>/<repo>).
+    // Without `base`, assets emit at /_astro/... and 404 under /rust-template/,
+    // rendering the site unstyled. With it, they resolve at /rust-template/_astro/.
+    site: "https://zircote.com",
+    base: "/rust-template",
     integrations: [
         astroMermaid(),
         starlight({
@@ -13,7 +18,7 @@ export default defineConfig({
                     tag: "meta",
                     attrs: {
                         property: "og:image",
-                        content: "https://zircote.github.io/rust-template/og-image.svg",
+                        content: "https://zircote.com/rust-template/og-image.svg",
                     },
                 },
                 {
@@ -32,7 +37,7 @@ export default defineConfig({
                     tag: "meta",
                     attrs: {
                         name: "twitter:image",
-                        content: "https://zircote.github.io/rust-template/og-image.svg",
+                        content: "https://zircote.com/rust-template/og-image.svg",
                     },
                 },
             ],
