@@ -162,12 +162,14 @@ report.
 
 ## Release Workflows
 
-**Publication is disabled in the template**: `publish = false` in
-Cargo.toml gates the Create Release job, crates.io publishing, and
-Homebrew tap updates (each workflow reads it via `cargo metadata` at
-runtime). The build → attest → SBOM → fail-closed-verify chain still
-runs as CI validation. Downstream projects delete that single line to
-arm all three channels.
+**External publication is disabled in the template**: `publish = false` in
+Cargo.toml gates the three *external* channels — crates.io publishing, the
+container image push, and Homebrew tap updates (each workflow reads it via
+`cargo metadata` at runtime). It does **not** gate the GitHub Release: a
+pushed tag always produces an attested GitHub Release (binaries + SBOM +
+source snapshot), because a release is a tag primitive, not an external
+publish. Downstream projects delete that single line to arm the three
+external channels.
 
 All release workflows are **var-driven**: crate name, binary name,
 version, description, and license are resolved at runtime from

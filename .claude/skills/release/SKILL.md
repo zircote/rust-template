@@ -82,18 +82,20 @@ NOTES
 
 ## Phase 0 — Preflight
 
-0. **Publication gate** — this project ships from rust-template, where
-   all publication channels are disabled by `publish = false` in
-   Cargo.toml (the workflows read it via `cargo metadata`; release
-   creation, crates.io publishing, the container chain, and Homebrew
-   updates all skip while it is set). Check it first:
+0. **External-publication gate** — `publish = false` in Cargo.toml gates the
+   EXTERNAL channels only: crates.io, the container image, and Homebrew. It
+   does **not** gate the GitHub Release — a pushed tag always produces an
+   attested GitHub Release (binaries + SBOM + source snapshot). Resolve which
+   channels are armed and report it; do not stop:
    ```bash
    cargo metadata --no-deps --format-version 1 \
-     | jq -r 'if .packages[0].publish == [] then "DISABLED" else "ENABLED" end'
+     | jq -r 'if .packages[0].publish == [] then "EXTERNAL PUBLISH DISABLED (GitHub Release only)" else "ALL CHANNELS ARMED" end'
    ```
-   If DISABLED, stop and tell the user: releasing requires deleting the
-   `publish = false` line (and its comment block) from Cargo.toml. For
-   the template repository itself this is by design — do not release.
+   - If DISABLED: proceed — this release will create the attested GitHub
+     Release and **skip** crates.io / container / Homebrew. State this plainly
+     in the first progress message so the operator knows what will ship.
+   - If ARMED: the full chain runs, including the irreversible crates.io
+     publish — confirm that is intended before tagging (see Phase 4 caveats).
 1. `git checkout main && git pull`; working tree must be clean of tracked
    changes (untracked noise is fine).
 2. Resolve the target version from the argument:

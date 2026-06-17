@@ -451,9 +451,12 @@ jobs:
 
   release:
     name: Create Release
-    if: >-
-      startsWith(github.ref, 'refs/tags/')
-      && needs.meta.outputs.publishable == 'true'
+    # A GitHub Release is a tag primitive — it does NOT depend on external
+    # publication. Any pushed tag that passes the fail-closed `verify` gate
+    # gets an attested GitHub Release. `publishable` (Cargo.toml `publish`)
+    # gates only the EXTERNAL channels: crates.io (publish.yml), the container
+    # image (pipeline.yml), and Homebrew (package-homebrew.yml).
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [meta, verify, audit, test]
     runs-on: ubuntu-latest
     environment: copilot

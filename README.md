@@ -192,7 +192,7 @@ This template includes production-ready workflows:
 
 ### Release and Deployment
 
-> **Template state: publication disabled.** `publish = false` in Cargo.toml gates GitHub Release creation, crates.io publishing, and Homebrew updates (workflows read it via `cargo metadata`); the build → attest → verify chain still runs as CI validation. Delete that line in your project to arm all three channels.
+> **Template state: external publication disabled.** `publish = false` in Cargo.toml gates the three *external* channels — crates.io publishing, the container image push, and Homebrew updates (workflows read it via `cargo metadata`). It does **not** gate GitHub Releases: a pushed tag always produces an attested GitHub Release (binaries + SBOM + source snapshot), because a release is a tag primitive, not an external publish. Delete that line in your project to arm the three external channels.
 
 - **Release** (`.github/workflows/release.yml`) - Attested GitHub releases with multi-platform binaries
   - Builds for: Linux (`x86_64`, ARM64), macOS (`x86_64`, ARM64), Windows (`x86_64`)

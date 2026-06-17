@@ -79,23 +79,34 @@ publish = false
 
 Every release-side workflow resolves this at runtime via
 `cargo metadata --no-deps --locked --format-version 1`, mapping
-`.packages[0].publish == []` to `publishable = "false"`. That single boolean
-is the master switch. Deleting the `publish = false` line arms all four
-outward-facing channels at once.
+`.packages[0].publish == []` to `publishable = "false"`. That boolean gates the
+three **external** channels. Deleting the `publish = false` line arms them at
+once.
 
-**Exactly what `publish = false` disables:**
+A **GitHub Release is deliberately *not* gated by this switch** — it is a tag
+primitive, not an external publish. A pushed tag always produces an attested
+GitHub Release (binaries + SBOM + source snapshot), in both template and armed
+state, provided the fail-closed `verify` job passes.
+
+**What `publish = false` disables (external channels only):**
 
 | Channel | Mechanism in template state |
 |---|---|
 | **Container build → sign → verify** | `pipeline.yml`'s `gate` job resolves `publishable=false`; the `docker` job's `if:` requires `publishable == 'true'`, so `docker`, `docker-sign`, `docker-verify`, `gate-image`, and `attest-container-scan` are all **skipped** — the template builds no image. |
 | **crates.io publish** | `publish.yml`'s `guard` job sets `publishable=false`; the `publish` job's `if:` gates the whole job off. (cargo itself also refuses `cargo publish` while `publish = false`.) |
-| **GitHub Release creation** | `release.yml`'s `release` job requires `startsWith(github.ref, 'refs/tags/') && needs.meta.outputs.publishable == 'true'`. The build → attest → SBOM → **fail-closed verify** chain still runs as CI validation; only the final *publish of the release* is gated off. |
 | **Homebrew tap update** | `package-homebrew.yml` reads `publishable` from `Cargo.toml` *at the released tag*; every formula-push step is gated on `publishable == 'true'`. |
 
-The deploy-time *evidence chain still executes* in template state — binaries
-build, provenance and SBOM are attested, verification runs fail-closed. What
-the gate withholds is the *outward publication* of those artifacts. This lets
-the template prove the whole pipeline works without shipping anything.
+**What `publish = false` does NOT gate:**
+
+| Always runs on a tag | Mechanism |
+|---|---|
+| **GitHub Release** | `release.yml`'s `release` job is gated on `startsWith(github.ref, 'refs/tags/')` alone. It runs the full build → attest → SBOM → **fail-closed verify** chain and then creates the GitHub Release with the attested binaries, SBOM, and source snapshot — regardless of `publishable`. |
+
+The deploy-time *evidence chain always executes* — binaries build, provenance
+and SBOM are attested, verification runs fail-closed, and the GitHub Release is
+created. What `publish = false` withholds is *external distribution* (crates.io,
+container registry, Homebrew), so the template can ship attested GitHub Releases
+without claiming a crates.io name or pushing an image.
 
 ---
 
@@ -148,8 +159,9 @@ dry-run: version suffixed `-dev`, release job skipped). Flow:
    - source tarball → verify provenance + both gate verdicts, asserting the
      signer with `--signer-workflow zircote/.github/.github/workflows/reusable-attest-scan.yml`
      and the predicate-type URIs above.
-7. **`release`** (tag-gated + `publishable == 'true'`) — attaches binaries, the
-   SBOM, and `{bin}-{version}-checksums.txt` with auto-generated notes.
+7. **`release`** (tag-gated — `publishable` is **not** required) — attaches
+   binaries, the SBOM, the source snapshot, and `{bin}-{version}-checksums.txt`
+   with auto-generated notes. A pushed tag always produces this GitHub Release.
    `test` and `audit` (cargo-audit) are `needs` of this job because *a tag is
    untrusted input* — it is not guaranteed to point at a CI-green commit.
 
@@ -233,14 +245,15 @@ version that produces no diff is a no-op.
 > **Diátaxis mode: How-to.** Numbered, task-oriented, with a verification
 > command at the end.
 
-1. **Arm the channels.** Delete this one line from `Cargo.toml`:
+1. **Arm the external channels.** Delete this one line from `Cargo.toml`:
 
    ```toml
    publish = false
    ```
 
-   This single deletion arms the container chain, crates.io publish, GitHub
-   Release creation, and Homebrew — all four resolve it from `cargo metadata`.
+   This single deletion arms the container chain, crates.io publish, and
+   Homebrew — all three resolve it from `cargo metadata`. (GitHub Releases
+   already happen on every tag; this line never gated them.)
 
 2. **Set crate identity.** Edit `Cargo.toml` `name`, `version`, `description`,
    `license`, `repository`, and the `[[bin]]` name. Every release workflow is
