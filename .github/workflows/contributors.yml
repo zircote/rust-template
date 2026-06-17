@@ -5,13 +5,17 @@ on:
   #   - cron: '0 0 1 * *'  # Monthly on 1st
   workflow_dispatch:
 
+# Least privilege: read-all at the top; the job is granted contents:write
+# only because it commits the regenerated CONTRIBUTORS.md back to the repo.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   update-contributors:
     name: Update Contributors List
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout code

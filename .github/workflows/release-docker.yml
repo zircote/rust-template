@@ -26,14 +26,18 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+# Least privilege: read-all at the top; the build-and-push job is granted
+# packages:write only because it pushes the image to GHCR (when push=true).
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     outputs:
       image-digest: ${{ steps.build.outputs.digest }}
     steps:

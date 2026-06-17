@@ -5,8 +5,10 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+# Read-only: the job runs benchmarks and uploads an artifact; it never
+# commits, pushes, or comments back to the repo or PR.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   benchmark:

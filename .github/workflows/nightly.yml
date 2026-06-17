@@ -6,13 +6,17 @@ on:
   #   - cron: '0 2 * * *'  # 2 AM daily
   workflow_dispatch:
 
+# Least privilege: read-all at the top; the nightly job is granted
+# contents:write only because it publishes a GitHub Release.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   nightly:
     name: Build Nightly Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout code

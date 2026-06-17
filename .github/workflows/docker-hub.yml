@@ -9,14 +9,18 @@ on:
   #     - 'v*'
   workflow_dispatch:
 
+# Least privilege: read-all at the top; the publish job is granted
+# packages:write only because it pushes images to GHCR.
 permissions:
   contents: read
-  packages: write
 
 jobs:
   docker-publish:
     name: Publish to Multiple Registries
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     
     steps:
       - name: Checkout code

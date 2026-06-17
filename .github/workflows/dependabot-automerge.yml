@@ -5,14 +5,18 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+# Least privilege: read-all at the top; the auto-merge job is granted write
+# only because it enables auto-merge on Dependabot PRs.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   auto-merge:
     name: Auto-merge Dependabot PRs
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     if: github.actor == 'dependabot[bot]'
     
     steps:
