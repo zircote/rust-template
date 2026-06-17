@@ -13,11 +13,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..", "..");
 const siteRoot = resolve(__dirname, "..");
 
-function buildLinkMap(mappingPages) {
+function buildLinkMap(mappingPages, basePath = "") {
     const linkMap = {};
     for (const page of mappingPages) {
         const filename = page.source.split("/").pop();
-        const url = "/" + page.output.replace(/\.mdx$/, "/");
+        // Internal links must include the Pages base path (e.g. /rust-template),
+        // otherwise they resolve to the domain root and 404. `basePath` mirrors
+        // `base` in astro.config.mjs.
+        const url = basePath + "/" + page.output.replace(/\.mdx$/, "/");
         linkMap[filename] = url;
     }
     linkMap["CONTRIBUTING.md"] =
@@ -70,7 +73,7 @@ function buildFrontmatter(page, extractedTitle) {
  */
 export function generateDocsPages(outputBase) {
     const mapping = JSON.parse(readFileSync(join(__dirname, "docs-mapping.json"), "utf-8"));
-    const linkMap = buildLinkMap(mapping.pages);
+    const linkMap = buildLinkMap(mapping.pages, mapping.basePath ?? "");
     const outDir = outputBase || join(siteRoot, mapping.outputDir);
     const generated = [];
     const skipped = [];
