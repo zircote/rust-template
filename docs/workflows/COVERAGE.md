@@ -12,7 +12,7 @@ Automated code coverage measurement and tracking using [cargo-llvm-cov](https://
 | Workflow | `.github/workflows/ci-coverage.yml` |
 | Tool | cargo-llvm-cov |
 | Integration | Codecov (optional) |
-| Triggers | Push to main, PRs, weekly schedule |
+| Triggers | Via `pipeline.yml` on push/PR/tag, plus manual (`workflow_dispatch`) |
 | Target | ≥90% coverage |
 
 ### CI pipeline stages
@@ -23,10 +23,10 @@ The workflow automatically:
 2. **Execute** — run all tests (unit, integration, doc).
 3. **Collect** — gather coverage data.
 4. **Report** — generate HTML, LCOV, and JSON reports.
-5. **Upload** — send to Codecov (if a token is configured).
-6. **Comment** — post a summary on PRs.
+5. **Upload** — send to Codecov (if a token is configured) and upload the `coverage-report` artifact.
+6. **Enforce** — fail CI if total coverage is below the 90% threshold.
 
-Reports are available via **Actions → Workflow Run → Artifacts → coverage-report** (30-day retention) and via an automated PR comment.
+Reports are available via **Actions → Workflow Run → Artifacts → coverage-report** (30-day retention).
 
 ### Summary output
 

@@ -11,18 +11,17 @@ Automated performance benchmarking with regression detection using [Criterion.rs
 |---|---|
 | Workflow | `.github/workflows/benchmark-regression.yml` |
 | Tool | Criterion.rs |
-| Triggers | PR, push to main, manual dispatch |
+| Triggers | Pull requests + manual (`workflow_dispatch`) |
 | Goal | Prevent performance regressions |
 
 ### CI pipeline stages
 
 The workflow runs these stages automatically:
 
-1. **Baseline** — store performance metrics from the main branch.
-2. **Current** — run benchmarks on the PR/current branch.
-3. **Compare** — calculate the performance change vs. baseline.
-4. **Report** — comment on the PR with results.
-5. **Update** — save the new baseline when merging to main.
+1. **Restore** — restore a cached baseline (`target/criterion`) from a prior run, if one exists.
+2. **Run** — run the benchmarks under `benches/` (if present) on the PR branch.
+3. **Report** — generate `benchmark-report.md` from the run output.
+4. **Upload** — upload the `benchmark-results` artifact (report, `target/criterion/`, raw output; 90-day retention).
 
 ### Benchmark output
 
@@ -63,13 +62,15 @@ Significant — real performance degradation detected.
 
 ### Regression detection criteria
 
-The workflow flags a regression when all of the following hold:
+> **Not automated.** The workflow runs the benchmarks and uploads the results, but it does **not** gate the PR on a regression — its compare step always reports no regression. Use these criteria when reviewing the uploaded artifact (or comparing locally with `cargo bench -- --baseline …`) to decide whether a change is a real regression:
 
 1. **Statistical significance** (`p < 0.05`).
 2. **Magnitude** (`> 5%` slower).
 3. **Consistency** (median in the regression range).
 
-### PR comment example
+### Benchmark report artifact
+
+The workflow writes a `benchmark-report.md` into the `benchmark-results` artifact (it does **not** post a PR comment). The report wraps the tail of the raw `cargo bench` output; for example:
 
 ```markdown
 # Benchmark Results
@@ -352,7 +353,7 @@ cargo bench -- --measurement-time 1
 
 ## Why this matters
 
-Performance is a property that erodes silently: a single PR rarely makes the code dramatically slower, but a year of unmeasured changes can. Storing a baseline from main and comparing every PR against it turns that slow drift into an explicit, reviewable signal. The statistical significance test (`p < 0.05`) and the noise threshold exist because microbenchmarks are jittery — without them, every run would look like a regression and the signal would be ignored. Pairing the threshold with profiling (flamegraph/perf) means a flagged regression leads to a root cause, not just a red mark.
+Performance is a property that erodes silently: a single PR rarely makes the code dramatically slower, but a year of unmeasured changes can. Running benchmarks on every PR and uploading the results turns that slow drift into a reviewable signal you can inspect per change. The statistical significance test (`p < 0.05`) and the noise threshold exist because microbenchmarks are jittery — without them, every run would look like a regression and the signal would be ignored. Pairing the threshold with profiling (flamegraph/perf) means a flagged regression leads to a root cause, not just a red mark. The template does not yet gate merges on a regression automatically; comparison against a baseline is done by reviewing the artifact or running `cargo bench -- --baseline …` locally.
 
 ## Links
 

@@ -11,7 +11,7 @@ Automated fuzz testing to discover crashes, panics, and edge cases using [cargo-
 |---|---|
 | Workflow | `.github/workflows/fuzz-testing.yml` |
 | Tool | `cargo-fuzz` (libFuzzer) |
-| Schedule | Daily at 2 AM |
+| Trigger | Manual (`workflow_dispatch`); a daily cron is present but commented out |
 | Goal | Find unexpected inputs that cause crashes |
 
 ### How fuzzing works
@@ -28,9 +28,10 @@ The fuzzer generates random or mutated inputs and feeds them to a target functio
 
 The workflow runs:
 
-- **Daily** at 2 AM (scheduled).
-- **On demand** via workflow dispatch.
+- **On demand** via `workflow_dispatch` (the only active trigger).
 - **Duration:** 5 minutes per target (configurable).
+
+A daily `schedule:` cron (`0 2 * * *`) is present in the workflow but commented out. Uncomment the `schedule:` block in `.github/workflows/fuzz-testing.yml` to run fuzzing daily.
 
 On a crash it creates a GitHub issue and uploads crash artifacts (90-day retention).
 
@@ -323,7 +324,7 @@ rm -rf fuzz/corpus/target/*
 
 ## Why this matters
 
-Hand-written tests check the inputs a developer thought of; fuzzing checks the inputs nobody thought of. By mutating inputs toward new code coverage, a fuzzer drives execution into the malformed, adversarial, and boundary cases where parsers, decoders, and deserializers actually break. Because it runs unattended and saves any crash as a minimized, replayable artifact, fuzzing turns "we hope this handles bad input" into a reproducible bug report — and the daily schedule keeps probing as the code evolves, catching regressions long-running campaigns would otherwise surface only by luck.
+Hand-written tests check the inputs a developer thought of; fuzzing checks the inputs nobody thought of. By mutating inputs toward new code coverage, a fuzzer drives execution into the malformed, adversarial, and boundary cases where parsers, decoders, and deserializers actually break. Because it runs unattended and saves any crash as a minimized, replayable artifact, fuzzing turns "we hope this handles bad input" into a reproducible bug report — and enabling the (commented-out) daily schedule keeps probing as the code evolves, catching regressions long-running campaigns would otherwise surface only by luck.
 
 ## Links
 

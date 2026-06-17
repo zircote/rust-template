@@ -11,7 +11,7 @@ Automated mutation testing to validate test suite effectiveness using [cargo-mut
 |---|---|
 | Workflow | `.github/workflows/mutation-testing.yml` |
 | Tool | `cargo-mutants` |
-| Triggers | PR (on src/tests changes), manual dispatch |
+| Triggers | PR (on `crates/`/`tests/` changes), manual dispatch |
 | Goal | Detect weak or missing tests |
 
 ### How mutation testing works
@@ -35,7 +35,7 @@ Good tests catch mutants; a surviving (missed) mutant marks a test gap.
 
 ### CI behavior
 
-The workflow runs automatically on PRs when `src/` or `tests/` change, and posts results as a PR comment. Reports are also available via **Actions → Artifacts → mutation-test-report**.
+The workflow runs automatically on PRs when `crates/`, `tests/`, `Cargo.toml`, or `Cargo.lock` change. It uploads the `mutation-test-report` artifact, available via **Actions → Artifacts → mutation-test-report**.
 
 ### Summary output
 
@@ -236,7 +236,7 @@ cargo mutants --timeout 600
 
 ## Why this matters
 
-Line coverage tells you a line ran; it cannot tell you whether a test would notice if that line were wrong. Mutation testing closes exactly that blind spot — by deliberately breaking the code and checking whether any test fails, it distinguishes assertions that verify behavior from tests that merely execute it. A high coverage number paired with a low mutation score is the signature of tautological tests, and surfacing that gap on PRs (where `src/` or `tests/` changed) keeps test quality from quietly decaying as the codebase grows.
+Line coverage tells you a line ran; it cannot tell you whether a test would notice if that line were wrong. Mutation testing closes exactly that blind spot — by deliberately breaking the code and checking whether any test fails, it distinguishes assertions that verify behavior from tests that merely execute it. A high coverage number paired with a low mutation score is the signature of tautological tests, and surfacing that gap on PRs (where `crates/` or `tests/` changed) keeps test quality from quietly decaying as the codebase grows.
 
 ## Links
 
