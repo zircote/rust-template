@@ -3,63 +3,55 @@ title: "Test Matrix"
 description: "Multi-platform test matrix configuration."
 ---
 
-## Overview
+A comprehensive test matrix validating code across multiple platforms, Rust versions, and feature combinations.
 
-Comprehensive test matrix validating code across multiple platforms, Rust versions, and feature combinations.
+## Reference
 
-**Workflow:** `.github/workflows/test-matrix.yml`
-**Platforms:** Linux, macOS, Windows
-**Rust Versions:** Stable, Beta, Nightly, MSRV (1.80)
-**Triggers:** Push to main, PRs, Weekly schedule
+| Field | Value |
+|---|---|
+| Workflow | `.github/workflows/ci-test-matrix.yml` |
+| Platforms | Linux, macOS, Windows |
+| Rust versions | Stable, Beta, Nightly, MSRV (1.92) |
+| Triggers | Pull requests (via pipeline.yml) |
 
-## Matrix Configuration
+### Operating systems
 
-The workflow tests these combinations:
+- **ubuntu-latest** — Linux (primary platform).
+- **macos-latest** — macOS (Apple Silicon + Intel).
+- **windows-latest** — Windows (x64).
 
-### Operating Systems
-- **ubuntu-latest** - Linux (primary platform)
-- **macos-latest** - macOS (Apple Silicon + Intel)
-- **windows-latest** - Windows (x64)
+### Rust toolchains
 
-### Rust Toolchains
-- **stable** - Latest stable Rust
-- **beta** - Beta channel (upcoming stable)
-- **nightly** - Nightly builds (experimental features)
-- **1.80** - MSRV (Minimum Supported Rust Version)
+- **stable** — latest stable Rust.
+- **beta** — beta channel (upcoming stable).
+- **nightly** — nightly builds (experimental features).
+- **1.92** — MSRV (Minimum Supported Rust Version).
 
-### Feature Combinations
-- `--all-features` - All features enabled
-- `--no-default-features` - Minimal build
-- Default - Standard feature set
+### Feature combinations
 
-**Total Jobs:** ~12-15 (optimized to skip redundant combinations)
+- `--all-features` — all features enabled.
+- `--no-default-features` — minimal build.
+- Default — standard feature set.
 
-## What Gets Tested
+**Total jobs:** ~12-15 (optimized to skip redundant combinations).
 
-### For All Combinations
+### What gets tested
 
-1. **Build**: `cargo build`
-2. **Unit Tests**: `cargo test`
-3. **Doc Tests**: `cargo test --doc`
+| Scope | Checks |
+|---|---|
+| All combinations | `cargo build`, `cargo test`, `cargo test --doc` |
+| Stable + Ubuntu only | `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo doc --no-deps` |
+| Separate jobs | Integration tests (`cargo test --test '*'`), Miri (nightly) |
 
-### Stable + Ubuntu Only
+### Result interpretation
 
-4. **Formatting**: `cargo fmt --check`
-5. **Linting**: `cargo clippy -- -D warnings`
-6. **Documentation**: `cargo doc --no-deps`
+| Result | Meaning | Action |
+|---|---|---|
+| Success ✅ | All platforms and versions pass | Code is portable and compatible |
+| Partial failure ⚠️ | One OS/version fails | Fix the platform-specific issue (path, filesystem, or API difference) |
+| MSRV failure ❌ | MSRV job fails, stable passes | Code uses features newer than MSRV — bump MSRV, remove the feature, or gate it |
 
-### Separate Jobs
-
-7. **Integration Tests**: `cargo test --test '*'`
-8. **Miri**: Undefined behavior detection (nightly)
-
-## Understanding Results
-
-### Success (✅)
-
-All platforms and versions pass. Code is portable and compatible.
-
-### Partial Failure (⚠️)
+Example partial failure:
 
 ```text
 ubuntu-latest / stable: ✅
@@ -67,182 +59,71 @@ macos-latest / stable: ❌
 windows-latest / stable: ✅
 ```
 
-**Action:** Fix macOS-specific issue (likely path, filesystem, or API difference).
-
-### MSRV Failure (❌)
+Example MSRV failure:
 
 ```text
-ubuntu-latest / 1.80: ❌
+ubuntu-latest / 1.92: ❌
 ubuntu-latest / stable: ✅
 ```
 
-**Action:** Code uses features newer than MSRV. Either:
-- Update MSRV in `Cargo.toml`
-- Remove incompatible features
-- Add feature flags
+### Miri coverage
 
-## Platform-Specific Issues
+Miri (nightly only, on a separate job) detects use-after-free, out-of-bounds memory access, data races in unsafe code, invalid pointer arithmetic, and uninitialized memory reads. It is 100-1000x slower than normal tests and does not support file/network I/O.
 
-### Path Separators
+## How-to
 
-```rust
-// ❌ Bad - Unix-only
-let path = format!("{}/file.txt", dir);
+### Check MSRV locally
 
-// ✅ Good - Cross-platform
-use std::path::PathBuf;
-let path = PathBuf::from(dir).join("file.txt");
-```
-
-### Line Endings
-
-```rust
-// ❌ Bad - Assumes Unix line endings
-assert_eq!(content, "line1\nline2\n");
-
-// ✅ Good - Platform-agnostic
-assert_eq!(content.lines().count(), 2);
-```
-
-### Filesystem Case Sensitivity
-
-```rust
-// ❌ Bad - macOS/Windows are case-insensitive
-let file = File::open("Config.toml")?;
-
-// ✅ Good - Exact case matching
-let file = File::open("config.toml")?;
-```
-
-### Process Signals
-
-```rust
-// ❌ Bad - SIGTERM not available on Windows
-std::process::Command::new("kill")
-    .arg("-TERM")
-    .spawn()?;
-
-// ✅ Good - Use cross-platform crate
-use subprocess::Popen;
-```
-
-## MSRV (Minimum Supported Rust Version)
-
-Current MSRV: **1.80**
-
-### Checking MSRV Locally
+Current MSRV: **1.92**.
 
 ```bash
-# Install specific Rust version
-rustup install 1.80
+# Install the MSRV toolchain
+rustup install 1.92
 
 # Test with MSRV
-cargo +1.80 check
-cargo +1.80 test
+cargo +1.92 check
+cargo +1.92 test
 ```
 
-### Common MSRV Issues
+Verify: both commands succeed under the pinned toolchain.
 
-#### Edition Features
-
-```toml
-# Cargo.toml
-[package]
-edition = "2024"  # Requires Rust 1.85+
-rust-version = "1.80"  # Conflict!
-```
-
-**Fix:** Use `edition = "2021"` or update MSRV.
-
-#### Newer APIs
-
-```rust
-// std::io::Read::read_buf() added in 1.78
-let mut buf = Vec::new();
-reader.read_buf(&mut buf)?;
-```
-
-**Fix:** Use older APIs or bump MSRV.
-
-#### Dependency MSRV
-
-```toml
-[dependencies]
-serde = "1.0"  # May require newer Rust
-```
-
-**Fix:** Pin to older compatible versions or update MSRV.
-
-## Feature Testing
-
-### All Features
-
-```yaml
-matrix:
-  features: ['--all-features']
-```
-
-Tests maximum feature combination. Ensures no feature conflicts.
-
-### No Default Features
-
-```yaml
-matrix:
-  features: ['--no-default-features']
-```
-
-Tests minimal build. Ensures optional features don't leak into default.
-
-### Specific Features
+### Test feature combinations locally
 
 ```bash
-# Test individual features locally
+# Individual features
 cargo test --no-default-features --features feature1
 cargo test --no-default-features --features feature2
 cargo test --features feature1,feature2
+
+# Maximum and minimal builds
+cargo test --all-features
+cargo test --no-default-features
 ```
 
-## Integration Tests
+`--all-features` ensures no feature conflicts; `--no-default-features` ensures optional features don't leak into the default set. Verify: every combination compiles and passes.
 
-Separate job runs integration tests:
+### Run integration tests
 
 ```bash
 cargo test --test '*' --verbose
 ```
 
-**Location:** `tests/*.rs`
+Integration tests live in `tests/*.rs` and exercise the public API, not internal units. Verify: all integration tests pass.
 
-**Purpose:** Test public API integration, not internal units.
-
-## Miri - Undefined Behavior Detection
-
-Miri detects:
-- Use-after-free
-- Out-of-bounds memory access
-- Data races (unsafe code)
-- Invalid pointer arithmetic
-- Uninitialized memory reads
-
-### Running Miri Locally
+### Run Miri locally
 
 ```bash
-# Install miri component
+# Install the miri component
 rustup +nightly component add miri
 
 # Run miri tests
 cargo +nightly miri test
 
-# Run specific test
+# Run a specific test
 cargo +nightly miri test test_name
 ```
 
-### Miri Limitations
-
-- **Slow**: 100-1000x slower than normal tests
-- **No I/O**: File/network operations unsupported
-- **Nightly only**: Requires nightly Rust
-
-### Skip Tests in Miri
+Skip a test that does I/O (unsupported under Miri):
 
 ```rust
 #[test]
@@ -252,9 +133,77 @@ fn test_file_io() {
 }
 ```
 
-## Optimization: Reducing CI Time
+Verify: `cargo +nightly miri test` completes with no UB reports.
 
-### Exclude Redundant Combinations
+### Test multiple platforms locally
+
+```bash
+# Cross-compilation with cross
+cargo install cross
+cross test --target x86_64-pc-windows-gnu
+cross test --target x86_64-apple-darwin
+
+# Linux container
+docker run --rm -v $(pwd):/app -w /app rust:latest cargo test
+```
+
+Verify: tests pass for each target you exercise.
+
+### Write portable code
+
+Avoid the common cross-platform pitfalls:
+
+```rust
+// Path separators — use PathBuf, not string formatting
+use std::path::PathBuf;
+let path = PathBuf::from(dir).join("file.txt");
+
+// Line endings — compare structurally, not byte-for-byte
+assert_eq!(content.lines().count(), 2);
+
+// Filesystem case sensitivity — match exact case
+let file = File::open("config.toml")?;
+
+// Process signals — use a cross-platform crate instead of `kill`
+use subprocess::Popen;
+```
+
+Verify: the test matrix passes on all three operating systems.
+
+### Resolve MSRV failures
+
+Common causes and fixes:
+
+```toml
+# Edition vs MSRV conflict
+[package]
+edition = "2024"      # Requires a recent toolchain
+rust-version = "1.92" # Keep these consistent
+```
+
+```rust
+// Newer std APIs may exceed MSRV — use an older API or bump MSRV
+let mut buf = Vec::new();
+reader.read_buf(&mut buf)?;
+```
+
+```toml
+# A dependency may require a newer Rust — pin a compatible version or bump MSRV
+[dependencies]
+serde = "1.0"
+```
+
+Diagnostic steps:
+
+1. Check dependencies: `cargo tree --edges no-dev` for version conflicts.
+2. Check APIs: search for recently stabilized features.
+3. Update or lower MSRV based on the requirement.
+
+Verify: `cargo +1.92 check` succeeds.
+
+### Optimize CI time
+
+Skip redundant combinations:
 
 ```yaml
 matrix:
@@ -265,9 +214,7 @@ matrix:
       rust: beta
 ```
 
-Only test beta on Linux to save time.
-
-### Cache Dependencies
+Cache dependencies:
 
 ```yaml
 - uses: actions/cache@v4
@@ -279,48 +226,19 @@ Only test beta on Linux to save time.
     key: ${{ runner.os }}-${{ matrix.rust }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 ```
 
-Speeds up subsequent runs.
-
-### Fail Fast
+See all failures rather than stopping at the first:
 
 ```yaml
 strategy:
-  fail-fast: false  # Continue all jobs even if one fails
+  fail-fast: false
 ```
 
-See all failures, not just the first.
+Verify: total matrix runtime drops while still covering each platform.
 
-## Local Multi-Platform Testing
+### Troubleshooting
 
-### Using Cross
+**Tests fail only on Windows** — usually path separators (`/` vs `\`), case-insensitive filesystem, a different temp directory, or CRLF vs LF line endings:
 
-```bash
-# Install cross for cross-compilation
-cargo install cross
-
-# Test for different targets
-cross test --target x86_64-pc-windows-gnu
-cross test --target x86_64-apple-darwin
-```
-
-### Docker
-
-```bash
-# Test in Linux container
-docker run --rm -v $(pwd):/app -w /app rust:latest cargo test
-```
-
-## Troubleshooting
-
-### Tests Fail Only on Windows
-
-**Common Causes:**
-- Path separators (`/` vs `\`)
-- Case-insensitive filesystem
-- Different temporary directory location
-- Line endings (CRLF vs LF)
-
-**Debug:**
 ```rust
 #[cfg(windows)]
 #[test]
@@ -329,26 +247,21 @@ fn test_windows_specific() {
 }
 ```
 
-### Tests Fail on macOS Only
+**Tests fail only on macOS** — usually the case-insensitive but case-preserving filesystem, different system APIs, or Apple-specific security restrictions.
 
-**Common Causes:**
-- Case-insensitive but case-preserving filesystem
-- Different system APIs
-- Apple-specific security restrictions
+**MSRV test fails** — check dependency versions, check for recently stabilized APIs, then update or lower MSRV.
 
-### MSRV Test Fails
+### Best practices
 
-1. **Check dependencies**: `cargo tree --edges no-dev` for version conflicts
-2. **Check APIs**: Search for recently stabilized features
-3. **Update or lower MSRV**: Choose based on requirement
+1. **Test locally first** — use `cross` or Docker before pushing.
+2. **Fix MSRV issues early** — don't let them accumulate.
+3. **Use `PathBuf`** — always for cross-platform file paths.
+4. **Gate platform-specific tests** — `#[cfg(target_os = "linux")]`.
+5. **Monitor CI time** — optimize the matrix if jobs run long.
 
-## Best Practices
+## Why this matters
 
-1. **Test locally first**: Use `cross` or Docker before pushing
-2. **Fix MSRV issues early**: Don't let them accumulate
-3. **Use PathBuf**: Always for cross-platform file paths
-4. **Skip platform-specific tests**: Use `#[cfg(target_os = "linux")]`
-5. **Monitor CI time**: Optimize matrix if jobs take too long
+"It works on my machine" is the failure mode this matrix exists to prevent. Rust compiles per target, and behavior diverges on path separators, filesystem case sensitivity, line endings, and platform APIs — bugs that only surface on an OS the author doesn't run. Pinning the MSRV job alongside stable catches the silent dependency on a too-new language feature before downstream users on the supported floor hit it, and the beta/nightly lanes give early warning of upcoming compiler changes while Miri probes for undefined behavior that ordinary tests pass right over.
 
 ## Links
 
@@ -356,3 +269,4 @@ fn test_windows_specific() {
 - [Cross-Compilation](https://rust-lang.github.io/rustup/cross-compilation.html)
 - [Miri Documentation](https://github.com/rust-lang/miri)
 - [GitHub Actions Matrix](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs)
+- [CI Workflows reference](/rust-template/workflows/ci-workflows/)

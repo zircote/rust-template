@@ -115,6 +115,13 @@
       "sidebarLabel": "SBOM"
     },
     {
+      "source": "docs/security/ATTESTED-DELIVERY.md",
+      "output": "security/attested-delivery.mdx",
+      "title": "Attested Delivery, End to End",
+      "description": "How a change becomes a signed, independently verifiable release via the zircote/.github central reusables.",
+      "sidebarLabel": "Attested Delivery"
+    },
+    {
       "source": "docs/security/SIGNED-RELEASES.md",
       "output": "security/signed-releases.mdx",
       "title": "Signed Releases",
