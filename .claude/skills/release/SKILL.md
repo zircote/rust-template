@@ -32,14 +32,25 @@ The pipeline this skill drives (all already wired in `.github/workflows/`):
 ```
 prep PR ──merge──> tag push ──┬─> release.yml  (test + audit gates → 5 platform
                               │    binaries → provenance + SBOM attestations →
-                              │    fail-closed verify → GitHub Release)
-                              ├─> publish.yml  (pre-publish checks → crates.io
-                              │    Trusted Publishing → download registry .crate
-                              │    → sha256 match → attest)
+                              │    source snapshot + SCA/IaC-license gate
+                              │    attestations → fail-closed verify →
+                              │    GitHub Release)
+                              ├─> publish.yml  (publish gate → pre-publish checks
+                              │    → crates.io Trusted Publishing → download
+                              │    registry .crate → sha256 match → attest)
                               └─> pipeline.yml (container: build → central
-                                   sign-and-attest → fail-closed verify)
+                                   sign-and-attest → fail-closed verify →
+                                   Trivy image gate attestation)
 release.yml completion ─workflow_run─> package-homebrew.yml (formula update)
 ```
+
+The `release.yml` run is not just binaries: it also packs a published
+source snapshot tarball and attests two quality-gate verdicts (SCA via
+OSV-Scanner, IaC/license via Trivy) over it through the central
+`reusable-attest-scan.yml` seam, then fail-closed verifies every
+attestation — binaries (provenance + SBOM) and source (provenance + both
+gate verdicts) — before the GitHub Release is created. SAST (CodeQL) and
+posture (Scorecard) are enforced at merge time, not re-run here.
 
 ## Help / no argument
 
@@ -57,10 +68,11 @@ USAGE
 
 WHAT IT DOES
     prep PR (version locations) -> required-checks green -> squash merge
-    -> annotated tag -> monitors: attested binaries + SBOM + fail-closed
-    verify -> GitHub Release; crates.io Trusted Publishing + .crate
-    attestation; attested container image; Homebrew auto-update ->
-    independent workstation verification of every artifact.
+    -> annotated tag -> monitors: attested binaries + SBOM + source
+    snapshot + SCA/IaC-license gate attestations + fail-closed verify ->
+    GitHub Release; crates.io Trusted Publishing + .crate attestation;
+    attested container image; Homebrew auto-update -> independent
+    workstation verification of every artifact.
 
 NOTES
     - Publishing to crates.io is irreversible; versions are immutable.
@@ -73,8 +85,8 @@ NOTES
 0. **Publication gate** — this project ships from rust-template, where
    all publication channels are disabled by `publish = false` in
    Cargo.toml (the workflows read it via `cargo metadata`; release
-   creation, crates.io publishing, and Homebrew updates all skip while
-   it is set). Check it first:
+   creation, crates.io publishing, the container chain, and Homebrew
+   updates all skip while it is set). Check it first:
    ```bash
    cargo metadata --no-deps --format-version 1 \
      | jq -r 'if .packages[0].publish == [] then "DISABLED" else "ENABLED" end'
@@ -166,16 +178,32 @@ The tag push is the release trigger. Facts that matter here:
 Four things run; watch all of them with the Monitor tool (one monitor,
 multiple conditions — report each as it lands):
 
-1. **Release run** (`release.yml`). Expect: Resolve Project Metadata,
-   Test, Cargo Audit, 5 × Build, SBOM (generate + attest), Verify
-   Attestations, Create Release — all success.
-2. **Publish run** (`publish.yml`). Expect: pre-publish checks, Trusted
-   Publishing auth, `cargo publish`, then the crate-attestation steps
-   ("Download published crate from registry" and "Attest crate
-   provenance"). Report these step conclusions explicitly.
+1. **Release run** (`release.yml`). Expect all of these jobs to succeed:
+   - `Resolve Project Metadata` (`meta`)
+   - `Test`, `Cargo Audit` (untrusted-tag gates)
+   - `Build (<platform>)` × 5
+   - `Source Snapshot` (`source`) — packs and attests the published
+     `<bin>-<X.Y.Z>-source.tar.gz`, the verifiable subject for the gates
+   - `Gate — SCA (OSV)`, `Gate — Trivy (IaC/license)` — the two
+     quality-gate scans
+   - `Attest — SCA`, `Attest — IaC/license` — gate verdicts signed over
+     the source snapshot via the central `reusable-attest-scan.yml` seam
+   - `SBOM (generate + attest)` (`sbom`)
+   - `Verify Attestations` (`verify`) — fail-closed: binaries
+     (provenance + SBOM) and source (provenance + both gate verdicts)
+   - `Create Release` (`release`)
+2. **Publish run** (`publish.yml`). Expect: `Publish Gate` (`guard`)
+   resolves publishable, then in the `Publish to crates.io` job —
+   "Run pre-publish checks", "Authenticate with crates.io" (Trusted
+   Publishing), "Publish to crates.io" (`cargo publish`), then the
+   crate-attestation steps "Download published crate from registry"
+   (sha256 match against the local package) and "Attest crate
+   provenance". Report these step conclusions explicitly.
 3. **Pipeline run** (`pipeline.yml`, container chain on the tag).
-   Expect: Docker build/push, Sign and Attest Image (central signer),
-   Verify Image Attestations — all success.
+   Expect: `Docker` build/push, `Sign and Attest Image` (central
+   signer), `Verify Image Attestations` — and the container gate
+   attestation pair `Gate — Trivy (image)` + `Attest — Container scan`.
+   All success.
 4. **Homebrew run** (`package-homebrew.yml`) must appear **on its own**
    after the Release run completes, via `workflow_run`. If no run appears
    within a few minutes of Release success, the trigger regressed — fall
@@ -189,12 +217,14 @@ multiple conditions — report each as it lands):
 | --- | --- | --- |
 | Publish auth fails: "No Trusted Publishing config found" | crates.io TP not configured | One-time setup on crates.io: crate → Settings → Trusted Publishing → repo `<owner>/<repo>`, workflow filename `publish.yml`, environment `copilot`. Then `gh workflow run publish.yml --ref v<X.Y.Z>` (dispatch-on-tag makes `github.ref` the tag, so the tag-gated steps run). |
 | Publish fails: "crate <name>@X.Y.Z already exists" | Duplicate publish attempt raced a successful one | Benign. Verify the version is live (`cargo search <name>`), report, move on. crates.io versions are immutable. |
-| Crate download step exhausts retries | static.crates.io CDN propagation | Re-run the failed job; the publish itself succeeded. |
+| Crate download step exhausts retries | static.crates.io CDN propagation | Re-run the failed job; the publish itself succeeded. The step retries 6× with a `<name>-release-check` User-Agent — static.crates.io rejects requests without one. |
 | Crate sha256 mismatch (registry vs local package) | Should never happen — cargo packaging is deterministic per commit | Hard stop. Do not attest. Investigate before anything else. |
 | Cargo Audit job fails | Real advisory in `Cargo.lock` | Fix the dependency (usually `cargo update <crate>`) via a normal PR, then start the release over at Phase 0. Note: cargo-deny may NOT have flagged it — deny analyzes the feature/target graph, audit scans the raw lockfile; an unreachable phantom lock entry trips audit only. Both gates are intentional; keep both. |
-| A build leg fails | Platform/toolchain issue | The five legs are linux-amd64, linux-arm64 (`ubuntu-24.04-arm`), macos-arm64, macos-amd64 (cross-target on macos-latest), windows-amd64. Binaries build with **default features** (matches `cargo install`). |
-| Release event didn't trigger Homebrew | Releases are authored by `github-actions[bot]`; bot events don't trigger workflows | The `workflow_run` trigger handles this; `head_branch` in the workflow_run payload IS the tag name for tag-triggered runs (verified empirically — and the payload has no `ref` field, whatever a reviewer may claim). |
-| Image verify fails on the tag run | Central signer/verify regression | Check the central repo pin in pipeline.yml and `references/platform-constraints.md` of the attested-delivery skill before anything else. |
+| A `Gate — SCA (OSV)` / `Gate — Trivy (IaC/license)` job fails | Vulnerable dependency or IaC/license finding at/above threshold | These are reusable scans from `zircote/.github` (`reusable-sca-osv.yml`, `reusable-trivy.yml`). Fix the finding via a normal PR, then restart at Phase 0. The downstream `Attest — *` and `Verify Attestations` jobs cannot run without a clean gate. |
+| `Verify Attestations` fails on the source snapshot | Gate verdict attestation missing or signer mismatch | The source tarball is verified against `https://zircote.github.io/attestations/sca/v1` and `.../iac-license/v1` with `--signer-workflow zircote/.github/.github/workflows/reusable-attest-scan.yml`. Check the seam pin in release.yml and the `gh-attested` skill references before anything else. |
+| A build leg fails | Platform/toolchain issue | The five legs are linux-amd64, linux-arm64 (`ubuntu-24.04-arm`), macos-arm64, macos-amd64 (cross-target `x86_64-apple-darwin` on macos-latest), windows-amd64. Binaries build with **default features** (`cargo build --release --locked`; matches `cargo install`). |
+| Release event didn't trigger Homebrew | Releases may be authored by a bot; bot events don't trigger workflows | The `workflow_run` trigger (`workflows: [Release]`) handles this; `head_branch` in the workflow_run payload IS the tag name for tag-triggered runs (verified empirically — and the payload has no `ref` field, whatever a reviewer may claim). The Homebrew job's `if:` also requires `conclusion == 'success'` and `head_branch` starting with `v`. |
+| Image verify fails on the tag run | Central signer/verify regression | Check the central repo pins in pipeline.yml (`sign-and-attest.yml`, `verify-attestation.yml`) and `references/platform-constraints.md` of the attested-delivery skill before anything else. |
 
 ## Phase 5 — Independent workstation verification
 
@@ -203,13 +233,24 @@ the local machine, in a scratch dir:
 
 ```bash
 gh release download v<X.Y.Z> --repo <owner>/<repo>
-# Expect 7 assets: 5 binaries, <bin>-<X.Y.Z>-sbom.cdx.json, checksums.txt
+# Expect 8 assets: 5 binaries, <bin>-<X.Y.Z>-sbom.cdx.json,
+# <bin>-<X.Y.Z>-source.tar.gz, and <bin>-<X.Y.Z>-checksums.txt
 
+# Binaries: provenance + SBOM binding.
 for f in <bin>-<X.Y.Z>-{linux-amd64,linux-arm64,macos-arm64,macos-amd64,windows-amd64.exe}; do
   gh attestation verify "$f" --repo <owner>/<repo>                  # provenance
   gh attestation verify "$f" --repo <owner>/<repo> \
     --predicate-type https://cyclonedx.org/bom                      # SBOM binding
 done
+
+# Source snapshot: provenance (this repo) + the two seam-signed gate verdicts.
+gh attestation verify <bin>-<X.Y.Z>-source.tar.gz --repo <owner>/<repo>
+for pt in sca iac-license; do
+  gh attestation verify <bin>-<X.Y.Z>-source.tar.gz --owner <owner> \
+    --signer-workflow zircote/.github/.github/workflows/reusable-attest-scan.yml \
+    --predicate-type "https://zircote.github.io/attestations/${pt}/v1"
+done
+
 shasum -a 256 -c <bin>-<X.Y.Z>-checksums.txt
 
 # crates.io: needs a User-Agent or the API/CDN rejects silently
@@ -226,9 +267,11 @@ gh attestation verify "oci://ghcr.io/<owner>/<repo>@<digest>" \
 
 Check **exit codes**, not grepped output — a filtered pipe that matches
 nothing looks identical to success (this mistake was made once; silence
-is not success). No `--signer-workflow` flag for binaries and crates:
-those are attested by this repo's own workflows. The container image DOES
-need `--signer-workflow`: it is signed by the central workflow.
+is not success). No `--signer-workflow` flag for binary *provenance/SBOM*
+or the crate: those are attested by this repo's own workflows. Two things
+DO need `--signer-workflow`: the source-snapshot *gate verdicts* (signed
+by the central `reusable-attest-scan.yml` seam) and the container image
+(signed by the central `sign-and-attest.yml`).
 
 Confirm crates.io shows the version:
 `curl -s -A 'release-check' https://crates.io/api/v1/crates/<name> | jq .crate.max_version`
@@ -237,6 +280,6 @@ Confirm crates.io shows the version:
 
 Summarize for the user: version, merge commit, tag; per-channel status
 (GitHub Release / crates.io / container image / Homebrew); workstation
-verification results; and anything from the failure playbook that fired.
-If any channel is incomplete, say exactly what is pending and what
-unblocks it.
+verification results (binaries, source snapshot + gate verdicts, crate,
+image); and anything from the failure playbook that fired. If any channel
+is incomplete, say exactly what is pending and what unblocks it.
