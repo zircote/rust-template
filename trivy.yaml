@@ -1,0 +1,24 @@
+# Trivy configuration — auto-loaded from the repo root by the Trivy CLI
+# (no --config flag needed). Governs the filesystem scan run by the
+# `trivy` job in .github/workflows/quality-gates.yml, which calls the
+# zircote/.github reusable with scanners=misconfig,license.
+#
+# Why skip `site/`:
+#   `site/` is the Astro documentation site — a private ("private": true),
+#   dev/build-time-only toolchain that is never shipped in the Rust crate or
+#   the container image. Trivy's license scanner walks site/package-lock.json
+#   and emits a license-classification "notice" for every transitive npm
+#   dependency (~540 LOW findings, plus a handful of LGPL "HIGH" from the
+#   `sharp` image-processing native libs). None describe a vulnerability in
+#   the shipped artifact.
+#
+#   License compliance for the shipped crate is governed by `cargo deny check`
+#   against an explicit allowlist (see deny.toml), and the docs site's npm
+#   vulnerabilities are covered by Dependabot — so license-scanning site/ here
+#   is pure noise. This mirrors the OSV/SCA gate, which already scopes itself
+#   to Cargo.lock and excludes site/.
+#
+#   Root-level IaC (the Dockerfile) is still scanned for misconfiguration.
+scan:
+  skip-dirs:
+    - site
