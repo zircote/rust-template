@@ -8,10 +8,11 @@ name: ADR Viewer
       - 'docs/adr/**'
   workflow_dispatch:
 
+# Read-only: the job generates ADR HTML and uploads it as an artifact. It
+# does not commit or deploy to Pages (Pages deployment is documented but not
+# implemented here), so no write scopes are needed.
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: "pages"

@@ -26,12 +26,12 @@ concurrency:
     && github.sha || github.ref }}
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
+# Least privilege at the top: read-only. Every job that needs a write scope
+# (packages for the docker push, id-token/attestations for signing,
+# security-events for SARIF) declares it at the job level below.
 permissions:
   contents: read
-  packages: write
-  id-token: write
   actions: read
-  pull-requests: write
 
 jobs:
   # -----------------------------------------------------------
@@ -124,6 +124,10 @@ jobs:
   docker:
     name: Docker
     needs: [ci, gate]
+    # packages:write only here — the reusable pushes the image to GHCR.
+    permissions:
+      contents: read
+      packages: write
     # Container build is gated on template state: skipped while
     # `publish = false` (template), armed once that line is deleted.
     if: >-

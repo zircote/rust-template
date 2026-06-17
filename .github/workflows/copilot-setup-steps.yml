@@ -3,6 +3,10 @@ name: "Copilot Setup Steps"
 
 "on": workflow_dispatch
 
+# Least privilege: this workflow only provisions a build environment.
+permissions:
+  contents: read
+
 jobs:
   copilot-setup-steps:
     name: Copilot coding agent environment
