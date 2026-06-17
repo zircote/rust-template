@@ -22,7 +22,7 @@ use crate::Error;
 
 /// Base URI under which this crate's problem-type documentation is published.
 ///
-/// Every [`Error`](crate::Error) `type` URI is derived as
+/// Every [`Error`](enum@crate::Error) `type` URI is derived as
 /// `{ERROR_TYPE_BASE_URI}/{slug}/{version}` (e.g.
 /// `https://zircote.com/rust-template/errors/invalid-input/v1`). Because this is
 /// a **template**, this is the single knob an adopter changes: point it at your
@@ -314,7 +314,7 @@ impl OutputFormat {
 }
 
 /// Per-variant problem-type metadata: the identity, version, status, and exit
-/// code that compose an [`Error`](crate::Error)'s envelope. Kept in one place so
+/// code that compose an [`Error`](enum@crate::Error)'s envelope. Kept in one place so
 /// extending the enum means adding a single arm in [`Error::meta`] (plus a
 /// recovery arm in [`Error::to_problem`]), not editing several parallel matches.
 struct ProblemMeta {
