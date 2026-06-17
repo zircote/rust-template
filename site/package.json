@@ -17,5 +17,8 @@
     "astro": "^6.4.7",
     "@astrojs/starlight": "^0.40.0",
     "astro-mermaid": "^1.4.0"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
   }
 }
