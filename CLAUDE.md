@@ -139,7 +139,33 @@ just audit            # Advisory database check
 - **Crate error type**: `Error` enum derived with `thiserror::Error`.
 - **Result alias**: `pub type Result<T> = std::result::Result<T, Error>`.
 - **Propagation**: use `?` operator. Never `unwrap()`, `expect()`, or `panic!()` in library code.
-- **Binary**: `main()` returns `ExitCode`; delegates to `run() -> Result`. Match on `Ok`/`Err` in `main()` and print errors to stderr.
+- **Binary**: `main()` returns `ExitCode`; delegates to `run() -> Result`. On `Err`, the binary renders the error to stderr in the format selected by `--format` / TTY (below).
+
+#### Dual-Consumer Error Output (RFC 9457)
+
+The crate emits errors for two consumers from one `Error` value: the human (the `thiserror` `Display`, unchanged) and the LLM agent (a serializable `application/problem+json` envelope). The envelope type is `ProblemDetails` in `crates/problem.rs`, re-exported from the crate root alongside `Applicability`, `CodeAction`, `SuggestedFix`, and `OutputFormat`. Map any error with `Error::to_problem()`; render for a format with `Error::render(OutputFormat)`.
+
+**Envelope members** (`ProblemDetails`):
+
+| Field | RFC 9457 role | Notes |
+|---|---|---|
+| `type` | standard | Stable, version-embedded URI (`.../v1`). |
+| `title` | standard | Short summary, stable per `type`. |
+| `status` | standard | Numeric status class. |
+| `detail` | standard | This-occurrence text; equals the `Display` string. |
+| `instance` | standard | `urn:` occurrence reference. |
+| `retry_after` | agent extension | Delta-seconds, or `null` (serialized) on non-transient errors. |
+| `suggested_fix` | agent extension | `{ description, applicability }`, or `null`. |
+| `code_actions` | agent extension | Array of LSP-`CodeAction`-shaped `{ title, kind, applicability }`. |
+| `exit_code` | optional extension | Process exit code; omitted from JSON when absent. |
+
+**Applicability markers** (on every `suggested_fix` and `code_action`): `machine_applicable` (auto-apply), `maybe_incorrect` (escalate to human), `has_placeholders` (fill slots first), `unspecified` (default; treat as `maybe_incorrect`).
+
+**Type URIs** (one per variant, distinct, versioned): `InvalidInput` → `https://zircote.com/rust-template/errors/invalid-input/v1`; `OperationFailed` → `https://zircote.com/rust-template/errors/operation-failed/v1`. A breaking change ships a new version rather than redefining the existing one. The base is a single configurable constant, `ERROR_TYPE_BASE_URI` (derived URI = `{base}/{slug}/{version}`); adopters point it at their own docs host. Each URI is dereferenceable — it resolves to a per-type reference page under `docs/reference/errors/` (the canonical source). The `instance` URN namespace tracks `CARGO_PKG_NAME`.
+
+**Format selection** (`OutputFormat::select(explicit, is_terminal)`): JSON when `--format=json` or (no flag and stderr is not a TTY); pretty otherwise. Pretty output is byte-identical to the historical `Error: {e}` line.
+
+For the rationale, see the **Dual-Consumer Error Output** explanation doc (`docs/explanation/error-architecture.md`).
 
 ### Ownership and Borrowing
 

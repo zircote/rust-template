@@ -148,6 +148,27 @@ export default defineConfig({
                             label: "Architecture & Design",
                             slug: "explanation/architecture",
                         },
+                        {
+                            label: "Error Output (Dual-Consumer)",
+                            slug: "explanation/error-architecture",
+                        },
+                    ],
+                },
+                {
+                    label: "Error Reference",
+                    items: [
+                        {
+                            label: "Error Type Registry",
+                            slug: "errors",
+                        },
+                        {
+                            label: "invalid-input/v1",
+                            slug: "errors/invalid-input/v1",
+                        },
+                        {
+                            label: "operation-failed/v1",
+                            slug: "errors/operation-failed/v1",
+                        },
                     ],
                 },
                 {
