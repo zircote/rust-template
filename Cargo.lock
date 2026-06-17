@@ -424,6 +424,8 @@ version = "0.3.0"
 dependencies = [
  "criterion",
  "proptest",
+ "serde",
+ "serde_json",
  "test-case",
  "thiserror",
 ]

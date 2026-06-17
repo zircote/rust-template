@@ -1,5 +1,9 @@
 #![doc = include_str!("../README.md")]
 
+mod problem;
+
+pub use problem::{Applicability, CodeAction, OutputFormat, ProblemDetails, SuggestedFix};
+
 use thiserror::Error;
 
 /// Error type for `rust_template` operations.

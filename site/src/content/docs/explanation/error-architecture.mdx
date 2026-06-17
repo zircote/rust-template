@@ -1,0 +1,182 @@
+---
+title: "Dual-Consumer Error Output"
+description: "Why and how the crate emits errors for both humans and LLM agents via an RFC 9457 problem+json envelope with applicability markers and a dual renderer."
+sidebar:
+  label: "Error Output (Dual-Consumer)"
+---
+
+This document explains the error-output architecture that `rust_template` ships
+as a foundation for adopters: a single binary that serves **two** audiences from
+**one** error value. It covers why the architecture exists, the envelope fields,
+the applicability markers, the type-URI versioning policy, and how the dual
+renderer selects a format. For the source-level error conventions (`thiserror`,
+the `Result` alias, `?` propagation), see the **Error Handling** reference.
+
+## Why error output is a dual-consumer problem
+
+A command-line tool now answers to two distinct consumers:
+
+1. **The human** who ran the command and reads the terminal.
+2. **The LLM agent** that orchestrated the command, parses the bytes, and decides
+   whether to retry, escalate, or abandon.
+
+Most CLIs serve the first consumer well and the second poorly. That imbalance is
+not a polish problem — it is a cost, reliability, and convergence problem. A
+verbose traceback shipped into an agent's `tool_result` burns tokens (a 5 KB
+traceback is roughly 1,600 tokens; a structured envelope cuts that by about
+75 %). A transient error without a retry directive causes agents to abandon
+recoverable work. An unmarked "suggested fix" invites agents to apply
+plausible-looking but wrong edits.
+
+The architecture's response is the model from
+[RFC 9457 *Problem Details*](https://www.rfc-editor.org/rfc/rfc9457): the human
+keeps the lush `Display` line unchanged, and the agent gets a structured
+`application/problem+json` envelope carrying the standard members plus three
+agent-facing extensions. The two renderings come from one `Error` value, so they
+can never drift.
+
+## The envelope
+
+`ProblemDetails` is a serializable struct. It is hand-rolled on `serde` (no
+heavyweight diagnostic framework), keeping the dependency surface to `serde` and
+`serde_json`, both of which pass `cargo deny check`.
+
+### Standard members (RFC 9457)
+
+| Member     | Type         | Meaning                                                       |
+|------------|--------------|---------------------------------------------------------------|
+| `type`     | URI string   | Stable, versioned URI identifying the problem type.           |
+| `title`    | string       | Short human-readable summary. Stable per `type`.              |
+| `status`   | number       | Numeric status class (mirrored to the process `exit_code`).   |
+| `detail`   | string       | Explanation specific to this occurrence — the `Display` line. |
+| `instance` | URI string   | `urn:` reference identifying this specific occurrence.        |
+
+`detail` is the error's `Display` string, so the human rendering and the machine
+`detail` are the same text by construction.
+
+### Agent extensions (mandatory)
+
+| Extension       | Type           | Meaning                                                                                                          |
+|-----------------|----------------|------------------------------------------------------------------------------------------------------------------|
+| `retry_after`   | number \| null | Delta-seconds before a safe retry. **Explicitly `null`** on non-transient errors so an agent never has to guess. |
+| `suggested_fix` | object \| null | A recovery action with a description and an applicability marker.                                                 |
+| `code_actions`  | array          | Structured edits modeled on the LSP `CodeAction` interface.                                                       |
+
+`retry_after` is serialized even when absent (as JSON `null`). Both error
+variants the template ships today are non-transient, so they carry
+`retry_after: null`. An adopter modeling a rate-limit class sets it to a positive
+number with `ProblemDetails::with_retry_after`.
+
+### Optional extension
+
+| Extension   | Type   | Meaning                                            |
+|-------------|--------|----------------------------------------------------|
+| `exit_code` | number | The process exit code emitted alongside the error. |
+
+## Applicability markers
+
+Every `suggested_fix` and every `code_actions[]` entry carries an `Applicability`
+marker, modeled on the rustc diagnostic precedent. Without it, an agent cannot
+tell a safe auto-applicable edit from a guess.
+
+| Marker               | Agent contract                                                  |
+|----------------------|-----------------------------------------------------------------|
+| `machine_applicable` | Apply the edit and retry without human confirmation.            |
+| `maybe_incorrect`    | Escalate to a human before applying.                            |
+| `has_placeholders`   | The fix has slots the agent must fill; lower confidence.        |
+| `unspecified`        | Applicability unknown; consumers treat it as `maybe_incorrect`. |
+
+`unspecified` is the default and the safe floor: a missing or unknown marker is
+never treated as auto-applicable.
+
+## Type-URI versioning policy
+
+Each `Error` variant maps to a distinct, version-embedded `type` URI:
+
+| Variant           | Type URI                                         |
+|-------------------|--------------------------------------------------|
+| `InvalidInput`    | `https://zircote.com/errors/invalid-input/v1`    |
+| `OperationFailed` | `https://zircote.com/errors/operation-failed/v1` |
+
+The policy is a **commitment**: the meaning of a given URI never changes. The
+`/v1` segment is the version. A breaking change to a problem type's semantics
+ships a new `/v2` URI rather than redefining `/v1`. Agents that key behavior off
+a `type` URI can therefore rely on it across releases. The URIs are stable and
+distinct per variant, which lets agents branch on the problem type without
+parsing prose.
+
+## The dual renderer
+
+The binary ships **both** renderings and selects between them. Selection is
+`OutputFormat::select`, driven by an explicit `--format` flag first, then by
+stderr TTY detection:
+
+| `--format` | stderr is a TTY | Selected format |
+|------------|-----------------|-----------------|
+| `json`     | (ignored)       | JSON            |
+| `pretty`   | (ignored)       | Pretty          |
+| (absent)   | yes             | Pretty          |
+| (absent)   | no              | JSON            |
+
+The rationale for honoring both signals: a human at a terminal gets the lush line
+by default; the same binary, run by an agent or in a pipe (no TTY), emits the
+structured envelope without any flag. An explicit `--format` always wins, so a
+human can force JSON and an agent can force pretty when needed.
+
+The **pretty** rendering is byte-identical to the binary's historical
+`Error: {e}` line — adopting this architecture changes nothing for human users.
+The **JSON** rendering is the compact `application/problem+json` envelope.
+
+## Worked example
+
+The `InvalidInput` variant produced by `divide(10, 0)` renders two ways from the
+same value. Pretty:
+
+```text
+Error: invalid input: divisor cannot be zero
+```
+
+JSON (`application/problem+json`):
+
+```json
+{
+  "type": "https://zircote.com/errors/invalid-input/v1",
+  "title": "Invalid input",
+  "status": 400,
+  "detail": "invalid input: divisor cannot be zero",
+  "instance": "urn:rust_template:invalid-input",
+  "retry_after": null,
+  "suggested_fix": {
+    "description": "Correct the input so it satisfies the documented constraints, then retry.",
+    "applicability": "maybe_incorrect"
+  },
+  "code_actions": [
+    {
+      "title": "Replace the offending input with a valid value",
+      "kind": "quickfix",
+      "applicability": "maybe_incorrect"
+    }
+  ],
+  "exit_code": 2
+}
+```
+
+## Why this lives in the library
+
+The envelope, the mapping, and the format selector are all part of the library
+surface, not buried in the binary. An adopter building a different binary — or a
+service, or a second CLI — reuses `ProblemDetails`, `Error::to_problem`, and
+`OutputFormat` directly. The binary in `crates/main.rs` is just the first
+consumer of a reusable contract. The cost is a slightly larger public API; the
+benefit is that every project built from the template inherits a machine-readable
+error contract for free, rather than re-implementing one per binary.
+
+## Related reading
+
+- The **Error Handling** reference — the field tables and source conventions in
+  lookup form.
+- **Architecture & Design** — the broader "why" behind the template's layout, CI,
+  and lint philosophy.
+- [RFC 9457 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457)
+- [LSP `CodeAction`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#codeAction)
+  — the shape `code_actions[]` follows.

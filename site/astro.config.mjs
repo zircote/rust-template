@@ -148,6 +148,10 @@ export default defineConfig({
                             label: "Architecture & Design",
                             slug: "explanation/architecture",
                         },
+                        {
+                            label: "Error Output (Dual-Consumer)",
+                            slug: "explanation/error-architecture",
+                        },
                     ],
                 },
                 {

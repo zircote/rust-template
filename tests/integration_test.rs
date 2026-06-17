@@ -1,6 +1,8 @@
 //! Integration tests for `rust_template`.
 
-use rust_template::{Config, Error, Result, add, divide};
+use rust_template::{
+    Applicability, Config, Error, OutputFormat, ProblemDetails, Result, add, divide,
+};
 
 #[test]
 fn test_add_integration() {
@@ -88,6 +90,130 @@ fn process_numbers(a: i64, b: i64) -> Result<i64> {
 fn test_result_chaining() {
     let result = process_numbers(10, 6);
     assert_eq!(result.unwrap(), 8);
+}
+
+/// Tests for the RFC 9457 Problem Details error-output architecture, exercised
+/// across the crate boundary as a downstream consumer would.
+mod problem_envelope_tests {
+    use super::*;
+
+    /// One forced instance of every `Error` variant the public API can produce.
+    /// Built directly so this helper stays outside `#[test]` context without
+    /// tripping the `unwrap_used` lint; `divide`/`process` produce these exact
+    /// shapes (verified in `super::test_divide_by_zero` and the unit tests).
+    fn each_variant() -> Vec<Error> {
+        vec![
+            Error::InvalidInput("divisor cannot be zero".to_string()),
+            Error::OperationFailed {
+                operation: "process".to_string(),
+                cause: "value -7 is negative".to_string(),
+            },
+        ]
+    }
+
+    #[test]
+    fn envelope_carries_five_standard_members_and_three_extensions() {
+        for err in each_variant() {
+            let json = err.to_problem().to_json();
+            let value: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+
+            for member in ["type", "title", "status", "detail", "instance"] {
+                assert!(
+                    value.get(member).is_some(),
+                    "missing standard member {member}"
+                );
+            }
+            // retry_after is present even on non-transient errors (null), so the
+            // agent never has to guess whether the class is retryable.
+            assert!(value.get("retry_after").is_some());
+            assert!(value["retry_after"].is_null());
+            assert!(value.get("suggested_fix").is_some());
+            assert!(value.get("code_actions").is_some());
+        }
+    }
+
+    #[test]
+    fn every_suggested_fix_and_code_action_has_an_applicability_marker() {
+        for err in each_variant() {
+            let problem = err.to_problem();
+            assert!(problem.suggested_fix.is_some(), "missing suggested_fix");
+            assert!(!problem.code_actions.is_empty(), "missing code_actions");
+
+            let json = problem.to_json();
+            let value: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+            assert!(value["suggested_fix"]["applicability"].is_string());
+            for action in value["code_actions"].as_array().expect("array") {
+                assert!(action["applicability"].is_string());
+            }
+        }
+    }
+
+    #[test]
+    fn every_variant_has_a_distinct_versioned_type_uri() {
+        let uris: Vec<&str> = each_variant().iter().map(Error::type_uri).collect();
+        for uri in &uris {
+            assert!(uri.contains("/v1"), "type URI {uri} must embed a version");
+        }
+        // Distinctness: no two variants share a type URI.
+        for (i, a) in uris.iter().enumerate() {
+            for b in &uris[i + 1..] {
+                assert_ne!(a, b, "type URIs must be distinct across variants");
+            }
+        }
+    }
+
+    #[test]
+    fn dual_format_selection_picks_json_or_pretty() {
+        let err = divide(10, 0).unwrap_err();
+
+        // Pretty is byte-identical to the historical Display line.
+        let pretty = err.render(OutputFormat::select(Some("pretty"), false));
+        assert_eq!(pretty, format!("Error: {err}"));
+
+        // JSON is the problem+json envelope.
+        let json = err.render(OutputFormat::select(Some("json"), true));
+        assert_eq!(json, err.to_problem().to_json());
+
+        // Without a flag, TTY selects pretty and a pipe selects JSON.
+        assert_eq!(err.render(OutputFormat::select(None, true)), pretty);
+        assert_eq!(err.render(OutputFormat::select(None, false)), json);
+    }
+
+    #[test]
+    fn reusable_envelope_builds_a_transient_error() {
+        // A downstream adopter constructs its own envelope with retry_after.
+        let problem = ProblemDetails::new(
+            "https://example.com/errors/rate-limit/v1",
+            "Rate limit exceeded",
+            429,
+            "Exceeded rate limit for this endpoint.",
+            "urn:request:abc123",
+        )
+        .with_retry_after(180)
+        .with_exit_code(2);
+
+        let value: serde_json::Value =
+            serde_json::from_str(&problem.to_json()).expect("valid JSON");
+        assert_eq!(value["retry_after"], 180);
+        assert_eq!(value["status"], 429);
+    }
+
+    #[test]
+    fn applicability_default_is_unspecified() {
+        assert_eq!(Applicability::default(), Applicability::Unspecified);
+    }
+
+    /// Proof harness: prints the pretty and JSON renderings for every variant.
+    /// Run `cargo test --all-features print_dual_renderings -- --nocapture` to
+    /// see the evidence in the transcript.
+    #[test]
+    fn print_dual_renderings() {
+        for err in each_variant() {
+            println!("\n=== variant: {} ===", err.type_uri());
+            println!("[pretty]\n{}", err.render(OutputFormat::Pretty));
+            println!("[json]\n{}", err.to_problem().to_json_pretty());
+        }
+    }
 }
 
 mod property_tests {
