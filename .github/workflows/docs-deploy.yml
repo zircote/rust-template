@@ -52,7 +52,11 @@ jobs:
 
       - name: Install site dependencies
         working-directory: site
-        run: npm ci || npm install
+        # `npm ci` installs strictly from the committed package-lock.json
+        # (pinned, reproducible). The `|| npm install` fallback allowed an
+        # unpinned resolution (Scorecard: Pinned-Dependencies); the lockfile
+        # is committed, so `npm ci` is the correct, reproducible path.
+        run: npm ci
 
       - name: Generate content
         working-directory: site
