@@ -1,7 +1,7 @@
 //! Integration tests for `rust_template`.
 
 use rust_template::{
-    Applicability, Config, Error, OutputFormat, ProblemDetails, Result, add, divide,
+    Applicability, Config, Error, OutputFormat, ProblemDetails, Result, add, divide, process,
 };
 
 #[test]
@@ -201,6 +201,23 @@ mod problem_envelope_tests {
     #[test]
     fn applicability_default_is_unspecified() {
         assert_eq!(Applicability::default(), Applicability::Unspecified);
+    }
+
+    /// Pins the hand-built `each_variant()` shapes against the real error output
+    /// of `divide`/`process`, so a change to either variant's `Display` message
+    /// fails here rather than silently diverging from the literals the rest of
+    /// this suite asserts against.
+    #[test]
+    fn each_variant_matches_real_error_output() {
+        let variants = each_variant();
+        assert_eq!(
+            variants[0].to_string(),
+            divide(10, 0).unwrap_err().to_string()
+        );
+        assert_eq!(
+            variants[1].to_string(),
+            process("-7").unwrap_err().to_string()
+        );
     }
 
     /// Proof harness: prints the pretty and JSON renderings for every variant.

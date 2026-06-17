@@ -313,6 +313,24 @@ impl OutputFormat {
     }
 }
 
+/// Per-variant problem-type metadata: the identity, version, status, and exit
+/// code that compose an [`Error`](crate::Error)'s envelope. Kept in one place so
+/// extending the enum means adding a single arm in [`Error::meta`] (plus a
+/// recovery arm in [`Error::to_problem`]), not editing several parallel matches.
+struct ProblemMeta {
+    /// Stable, URL-safe slug for the problem type.
+    slug: &'static str,
+    /// Version segment of the type URI (e.g. `"v1"`). Per-type, so one type can
+    /// advance independently of the others.
+    version: &'static str,
+    /// Short, stable title for the problem type.
+    title: &'static str,
+    /// Numeric status class.
+    status: u16,
+    /// Process exit code emitted alongside the error.
+    exit_code: u8,
+}
+
 impl Error {
     /// The stable, version-embedded problem-type URI for this error.
     ///
@@ -327,11 +345,8 @@ impl Error {
     /// The fully-qualified type URI for this variant.
     #[must_use]
     pub fn type_uri(&self) -> String {
-        format!(
-            "{ERROR_TYPE_BASE_URI}/{}/{}",
-            self.type_slug(),
-            self.type_version()
-        )
+        let meta = self.meta();
+        format!("{ERROR_TYPE_BASE_URI}/{}/{}", meta.slug, meta.version)
     }
 
     /// Stable, URL-safe slug identifying this error's problem type.
@@ -344,43 +359,26 @@ impl Error {
     /// The `'static` slug for this variant.
     #[must_use]
     pub const fn type_slug(&self) -> &'static str {
-        match self {
-            Self::InvalidInput(_) => "invalid-input",
-            Self::OperationFailed { .. } => "operation-failed",
-        }
+        self.meta().slug
     }
 
-    /// Version segment of this error's problem-type URI.
-    ///
-    /// Per-type, so one problem type can advance to `v2` without disturbing the
-    /// others. Both current variants are at `v1`.
-    const fn type_version(&self) -> &'static str {
+    /// All per-variant problem-type metadata in one place.
+    const fn meta(&self) -> ProblemMeta {
         match self {
-            Self::InvalidInput(_) | Self::OperationFailed { .. } => "v1",
-        }
-    }
-
-    /// Short, stable title for this error's problem type.
-    const fn title(&self) -> &'static str {
-        match self {
-            Self::InvalidInput(_) => "Invalid input",
-            Self::OperationFailed { .. } => "Operation failed",
-        }
-    }
-
-    /// Numeric status class for this error.
-    const fn status(&self) -> u16 {
-        match self {
-            Self::InvalidInput(_) => 400,
-            Self::OperationFailed { .. } => 500,
-        }
-    }
-
-    /// Process exit code emitted alongside this error.
-    const fn exit_code(&self) -> u8 {
-        match self {
-            Self::InvalidInput(_) => 2,
-            Self::OperationFailed { .. } => 1,
+            Self::InvalidInput(_) => ProblemMeta {
+                slug: "invalid-input",
+                version: "v1",
+                title: "Invalid input",
+                status: 400,
+                exit_code: 2,
+            },
+            Self::OperationFailed { .. } => ProblemMeta {
+                slug: "operation-failed",
+                version: "v1",
+                title: "Operation failed",
+                status: 500,
+                exit_code: 1,
+            },
         }
     }
 
@@ -436,14 +434,15 @@ impl Error {
             ),
         };
 
+        let meta = self.meta();
         ProblemDetails::new(
             self.type_uri(),
-            self.title(),
-            self.status(),
+            meta.title,
+            meta.status,
             self.to_string(),
-            format!("urn:{}:{}", env!("CARGO_PKG_NAME"), self.type_slug()),
+            format!("urn:{}:{}", env!("CARGO_PKG_NAME"), meta.slug),
         )
-        .with_exit_code(self.exit_code())
+        .with_exit_code(meta.exit_code)
         .with_suggested_fix(fix)
         .with_code_action(action)
     }
@@ -583,6 +582,8 @@ mod tests {
         // Applicability marker present on the fix and the action.
         assert!(value["suggested_fix"]["applicability"].is_string());
         assert!(value["code_actions"][0]["applicability"].is_string());
+        // Optional exit_code extension is emitted when set (here, Some(2)).
+        assert_eq!(value["exit_code"], 2);
     }
 
     #[test]

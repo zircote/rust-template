@@ -33,7 +33,11 @@ fn explicit_format<I: IntoIterator<Item = String>>(args: I) -> Option<String> {
         if let Some(rest) = arg.strip_prefix("--format=") {
             value = Some(rest.to_owned());
         } else if arg == "--format" {
-            value = iter.next();
+            // A bare, valueless trailing `--format` must not erase a format
+            // chosen earlier on the line; only update when a value follows.
+            if let Some(next) = iter.next() {
+                value = Some(next);
+            }
         }
     }
     value
@@ -104,6 +108,14 @@ mod tests {
             "--format=pretty".to_string(),
         ];
         assert_eq!(explicit_format(repeated).as_deref(), Some("pretty"));
+
+        // A bare, valueless trailing `--format` must not clobber a prior value.
+        let trailing_bare = vec![
+            "bin".to_string(),
+            "--format=json".to_string(),
+            "--format".to_string(),
+        ];
+        assert_eq!(explicit_format(trailing_bare).as_deref(), Some("json"));
     }
 
     #[test]
