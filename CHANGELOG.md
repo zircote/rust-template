@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-17
+
+### Security
+
+- **deps**: Force `esbuild` >= 0.28.1 in the docs site (GHSA-gv7w-rqvm-qjhr RCE via `NPM_CONFIG_REGISTRY`, GHSA-g7r4-m6w7-qqqr Windows dev-server path traversal)
+- **docker**: Pin Dockerfile base images by digest (OpenSSF Scorecard Pinned-Dependencies, Trivy DS-0001) and add a `docker` Dependabot ecosystem to keep them fresh
+- **ci**: Harden GitHub Actions token permissions to least privilege across all workflows (OpenSSF Scorecard Token-Permissions)
+- **ci**: Scope the Trivy supply-chain scan away from the dev-only docs site, clearing license-classification noise from the code-scanning hub
+
 ### Added
 
+- **fuzz**: Add a minimal cargo-fuzz harness targeting the public `process()` parser
+- **docs**: Add an end-to-end "Attested Delivery" guide — which `zircote/.github` reusables run, the `publish` gate, the build → sign → verify chain, and a downstream adoption runbook
 - **docs-site**: Add Astro Starlight documentation site at `site/`
   - 73 browsable, searchable pages deployed to GitHub Pages
   - Auto-generated content from `docs/` markdown, `.github/workflows/*.yml`, and `CLAUDE.md` reference sections
@@ -34,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **ci**: Decouple the GitHub Release from the external-publish gate — any pushed tag now produces an attested GitHub Release (binaries + SBOM + source snapshot); `publish = false` gates only crates.io, the container image, and Homebrew
+- **release**: Align the `/release` skill with the current attested workflows (source-snapshot and gate-attestation jobs; 8 release assets)
 - **workflows**: Replace rustdoc+mdBook docs-deploy workflow with Astro Starlight site deployment
   - Builds Node.js site alongside rustdoc, embeds API docs at `/api/`
   - Triggers on `docs/**`, `site/**`, `CLAUDE.md`, and `Cargo.toml` changes
@@ -58,6 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **docs**: Fix the GitHub Pages base path so the published site renders styled (assets were 404ing) and base-prefix internal navigation links
+- **docs**: Align workflow-reference coverage with the actual workflows (remove 6 stale reference pages) and regenerate all pages so committed content matches the generators
 - Rename copilot-setup-steps job ID
 - Add cargo deny check and rustls constraints to jumpstart prompts
 
