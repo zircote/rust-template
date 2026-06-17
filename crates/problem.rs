@@ -20,6 +20,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
+/// Base URI under which this crate's problem-type documentation is published.
+///
+/// Every [`Error`](crate::Error) `type` URI is derived as
+/// `{ERROR_TYPE_BASE_URI}/{slug}/{version}` (e.g.
+/// `https://zircote.com/rust-template/errors/invalid-input/v1`). Because this is
+/// a **template**, this is the single knob an adopter changes: point it at your
+/// own documentation host and every type URI follows. The default value is the
+/// template's own docs site, where each `/{slug}/{version}` path resolves to a
+/// live problem-type reference page.
+///
+/// The occurrence `instance` URN namespace is derived separately from the crate
+/// name (`CARGO_PKG_NAME`), so renaming the crate in `Cargo.toml` needs no edit
+/// here.
+pub const ERROR_TYPE_BASE_URI: &str = "https://zircote.com/rust-template/errors";
+
 /// How confidently an agent may apply a [`SuggestedFix`] or [`CodeAction`].
 ///
 /// Modeled on the rustc diagnostic `Applicability` enum. Without this marker an
@@ -130,7 +145,7 @@ impl CodeAction {
 /// use rust_template::{Applicability, ProblemDetails, SuggestedFix};
 ///
 /// let problem = ProblemDetails::new(
-///     "https://zircote.com/errors/invalid-input/v1",
+///     "https://zircote.com/rust-template/errors/invalid-input/v1",
 ///     "Invalid input",
 ///     400,
 ///     "divisor cannot be zero",
@@ -301,18 +316,47 @@ impl OutputFormat {
 impl Error {
     /// The stable, version-embedded problem-type URI for this error.
     ///
-    /// Each variant maps to a distinct URI under `/v1`. The `v1` segment is the
-    /// versioning commitment: the meaning of a given URI never changes; a
-    /// breaking change to a problem type ships a new `/v2` URI instead.
+    /// Derived as `{base}/{slug}/{version}`, where `base` is the configurable
+    /// [`ERROR_TYPE_BASE_URI`], `slug` is [`Error::type_slug`], and `version` is
+    /// the per-type version. The version is the stability commitment: the
+    /// meaning of a given URI never changes; a breaking change to a problem type
+    /// ships a new version (e.g. `/v2`) rather than redefining the existing one.
     ///
     /// # Returns
     ///
-    /// The `'static` type URI for this variant.
+    /// The fully-qualified type URI for this variant.
     #[must_use]
-    pub const fn type_uri(&self) -> &'static str {
+    pub fn type_uri(&self) -> String {
+        format!(
+            "{ERROR_TYPE_BASE_URI}/{}/{}",
+            self.type_slug(),
+            self.type_version()
+        )
+    }
+
+    /// Stable, URL-safe slug identifying this error's problem type.
+    ///
+    /// Used both as the path segment in [`Error::type_uri`] and as the
+    /// occurrence id in the `instance` URN. Stable across releases.
+    ///
+    /// # Returns
+    ///
+    /// The `'static` slug for this variant.
+    #[must_use]
+    pub const fn type_slug(&self) -> &'static str {
         match self {
-            Self::InvalidInput(_) => "https://zircote.com/errors/invalid-input/v1",
-            Self::OperationFailed { .. } => "https://zircote.com/errors/operation-failed/v1",
+            Self::InvalidInput(_) => "invalid-input",
+            Self::OperationFailed { .. } => "operation-failed",
+        }
+    }
+
+    /// Version segment of this error's problem-type URI.
+    ///
+    /// Per-type, so one problem type can advance to `v2` without disturbing the
+    /// others. Both current variants are at `v1`.
+    const fn type_version(&self) -> &'static str {
+        match self {
+            Self::InvalidInput(_) | Self::OperationFailed { .. } => "v1",
         }
     }
 
@@ -321,14 +365,6 @@ impl Error {
         match self {
             Self::InvalidInput(_) => "Invalid input",
             Self::OperationFailed { .. } => "Operation failed",
-        }
-    }
-
-    /// Stable slug used to build the occurrence `instance` URI.
-    const fn slug(&self) -> &'static str {
-        match self {
-            Self::InvalidInput(_) => "invalid-input",
-            Self::OperationFailed { .. } => "operation-failed",
         }
     }
 
@@ -368,7 +404,7 @@ impl Error {
     /// let err = divide(10, 0).unwrap_err();
     /// let problem = err.to_problem();
     ///
-    /// assert_eq!(problem.problem_type, "https://zircote.com/errors/invalid-input/v1");
+    /// assert_eq!(problem.problem_type, "https://zircote.com/rust-template/errors/invalid-input/v1");
     /// assert_eq!(problem.detail, "invalid input: divisor cannot be zero");
     /// assert_eq!(problem.retry_after, None);
     /// assert!(problem.suggested_fix.is_some());
@@ -405,7 +441,7 @@ impl Error {
             self.title(),
             self.status(),
             self.to_string(),
-            format!("urn:rust_template:{}", self.slug()),
+            format!("urn:{}:{}", env!("CARGO_PKG_NAME"), self.type_slug()),
         )
         .with_exit_code(self.exit_code())
         .with_suggested_fix(fix)
@@ -472,7 +508,7 @@ mod tests {
 
         assert_eq!(
             problem.problem_type,
-            "https://zircote.com/errors/invalid-input/v1"
+            "https://zircote.com/rust-template/errors/invalid-input/v1"
         );
         assert!(problem.problem_type.ends_with("/v1"));
         assert_eq!(problem.title, "Invalid input");
@@ -497,7 +533,7 @@ mod tests {
 
         assert_eq!(
             problem.problem_type,
-            "https://zircote.com/errors/operation-failed/v1"
+            "https://zircote.com/rust-template/errors/operation-failed/v1"
         );
         assert!(problem.problem_type.ends_with("/v1"));
         assert_eq!(problem.title, "Operation failed");
@@ -518,6 +554,16 @@ mod tests {
         assert_ne!(invalid, failed);
         assert!(invalid.ends_with("/v1"));
         assert!(failed.ends_with("/v1"));
+    }
+
+    #[test]
+    fn type_uri_derives_from_the_configurable_base() {
+        let err = divide(1, 0).unwrap_err();
+        assert!(err.type_uri().starts_with(ERROR_TYPE_BASE_URI));
+        assert_eq!(
+            err.type_uri(),
+            format!("{ERROR_TYPE_BASE_URI}/{}/v1", err.type_slug())
+        );
     }
 
     #[test]

@@ -239,6 +239,27 @@
       "title": "Dual-Consumer Error Output",
       "description": "Why and how the crate emits errors for both humans and LLM agents via an RFC 9457 problem+json envelope with applicability markers and a dual renderer.",
       "sidebarLabel": "Error Output (Dual-Consumer)"
+    },
+    {
+      "source": "docs/reference/errors/README.md",
+      "output": "errors.mdx",
+      "title": "Error Type Registry",
+      "description": "Canonical registry of the RFC 9457 problem types this crate emits, with dereferenceable type URIs.",
+      "sidebarLabel": "Error Type Registry"
+    },
+    {
+      "source": "docs/reference/errors/invalid-input.md",
+      "output": "errors/invalid-input/v1.mdx",
+      "title": "Invalid input",
+      "description": "Reference for the invalid-input problem type (v1): identity, recovery, applicability, and example envelope.",
+      "sidebarLabel": "invalid-input/v1"
+    },
+    {
+      "source": "docs/reference/errors/operation-failed.md",
+      "output": "errors/operation-failed/v1.mdx",
+      "title": "Operation failed",
+      "description": "Reference for the operation-failed problem type (v1): identity, recovery, applicability, and example envelope.",
+      "sidebarLabel": "operation-failed/v1"
     }
   ]
 }

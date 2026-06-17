@@ -2,7 +2,9 @@
 
 mod problem;
 
-pub use problem::{Applicability, CodeAction, OutputFormat, ProblemDetails, SuggestedFix};
+pub use problem::{
+    Applicability, CodeAction, ERROR_TYPE_BASE_URI, OutputFormat, ProblemDetails, SuggestedFix,
+};
 
 use thiserror::Error;
 

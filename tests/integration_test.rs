@@ -150,7 +150,7 @@ mod problem_envelope_tests {
 
     #[test]
     fn every_variant_has_a_distinct_versioned_type_uri() {
-        let uris: Vec<&str> = each_variant().iter().map(Error::type_uri).collect();
+        let uris: Vec<String> = each_variant().iter().map(Error::type_uri).collect();
         for uri in &uris {
             assert!(uri.contains("/v1"), "type URI {uri} must embed a version");
         }

@@ -91,17 +91,30 @@ never treated as auto-applicable.
 
 Each `Error` variant maps to a distinct, version-embedded `type` URI:
 
-| Variant           | Type URI                                         |
-|-------------------|--------------------------------------------------|
-| `InvalidInput`    | `https://zircote.com/errors/invalid-input/v1`    |
-| `OperationFailed` | `https://zircote.com/errors/operation-failed/v1` |
+| Variant           | Type URI                                                       |
+|-------------------|----------------------------------------------------------------|
+| `InvalidInput`    | `https://zircote.com/rust-template/errors/invalid-input/v1`    |
+| `OperationFailed` | `https://zircote.com/rust-template/errors/operation-failed/v1` |
 
 The policy is a **commitment**: the meaning of a given URI never changes. The
-`/v1` segment is the version. A breaking change to a problem type's semantics
-ships a new `/v2` URI rather than redefining `/v1`. Agents that key behavior off
-a `type` URI can therefore rely on it across releases. The URIs are stable and
-distinct per variant, which lets agents branch on the problem type without
-parsing prose.
+`/v1` segment is the version, carried per problem type so one type can advance to
+`/v2` without disturbing the others. A breaking change to a type's semantics
+ships a new version rather than redefining the existing one. Agents that key
+behavior off a `type` URI can therefore rely on it across releases.
+
+Each URI is **dereferenceable**: it resolves to a live problem-type reference
+page (the documentation registry lives at
+`https://zircote.com/rust-template/errors/`). Those per-type pages are the source
+of truth for a type's status, recovery action, and stability — see the
+**Errors** reference.
+
+**Configurable for adopters.** Because this is a template, the URI host is not
+hardcoded across the code. A single constant, `ERROR_TYPE_BASE_URI`, holds the
+base (`https://zircote.com/rust-template/errors` by default); every type URI is
+derived as `{base}/{slug}/{version}`. An adopter points that one constant at
+their own documentation host and all type URIs follow. The occurrence `instance`
+URN namespace is derived from the crate name (`CARGO_PKG_NAME`), so renaming the
+crate in `Cargo.toml` updates it automatically.
 
 ## The dual renderer
 
@@ -138,7 +151,7 @@ JSON (`application/problem+json`):
 
 ```json
 {
-  "type": "https://zircote.com/errors/invalid-input/v1",
+  "type": "https://zircote.com/rust-template/errors/invalid-input/v1",
   "title": "Invalid input",
   "status": 400,
   "detail": "invalid input: divisor cannot be zero",

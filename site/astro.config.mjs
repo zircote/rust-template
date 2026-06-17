@@ -155,6 +155,23 @@ export default defineConfig({
                     ],
                 },
                 {
+                    label: "Error Reference",
+                    items: [
+                        {
+                            label: "Error Type Registry",
+                            slug: "errors",
+                        },
+                        {
+                            label: "invalid-input/v1",
+                            slug: "errors/invalid-input/v1",
+                        },
+                        {
+                            label: "operation-failed/v1",
+                            slug: "errors/operation-failed/v1",
+                        },
+                    ],
+                },
+                {
                     label: "CI/CD & Workflows",
                     items: [
                         {
