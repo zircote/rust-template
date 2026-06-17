@@ -1,5 +1,6 @@
 {
   "outputDir": "src/content/docs",
+  "basePath": "/rust-template",
   "pages": [
     {
       "source": "docs/template/GETTING-STARTED.md",
