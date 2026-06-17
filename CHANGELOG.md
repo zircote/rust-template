@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-17
+
+### Added
+
+- **errors**: Dual-consumer (human + LLM-agent) error output following the RFC 9457 Problem Details model
+  - `ProblemDetails` serializable envelope carrying the five standard members (`type`, `title`, `status`, `detail`, `instance`) plus the `retry_after`, `suggested_fix`, and `code_actions` agent extensions and an optional `exit_code`
+  - `Applicability` markers (`machine_applicable` / `maybe_incorrect` / `has_placeholders` / `unspecified`) on every suggested fix and code action
+  - `Error::to_problem()` maps each variant to a distinct, version-embedded type URI derived from the configurable `ERROR_TYPE_BASE_URI`; the occurrence `instance` URN tracks the crate name
+  - `OutputFormat` + `Error::render()` dual renderer; the binary selects JSON vs pretty via `--format` and stderr `IsTerminal` detection (pretty output is byte-identical to the prior `Error: {e}` line)
+  - Per-type problem documentation under `docs/reference/errors/` (dereferenceable type URIs) and a "Dual-Consumer Error Output" explanation doc
+
+### Build
+
+- Add `serde` and `serde_json` runtime dependencies for JSON envelope serialization
+
 ## [0.3.0] - 2026-06-17
 
 ### Security
