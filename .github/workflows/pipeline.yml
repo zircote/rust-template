@@ -159,7 +159,7 @@ jobs:
       contents: read
     # zircote/.github main (2026-06-11)
     uses: >-
-      zircote/.github/.github/workflows/sign-and-attest.yml@740cb8efb57af0187f88e9b4f939355b871a5895
+      zircote/.github/.github/workflows/sign-and-attest.yml@75667179b994ac4b1f07db4fa0cee8012f3ea115
     with:
       image-name: ghcr.io/${{ github.repository }}
       image-digest: ${{ needs.docker.outputs.image-digest }}
