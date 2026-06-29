@@ -29,7 +29,7 @@ jobs:
 
       - name: Generate ADR HTML
         # main
-        uses: zircote/adrscope@e6384bf222c179d4083e1003b17154e48fc0f914
+        uses: zircote/adrscope@b44d631ad35d63d330aeec1ca04971b50d8b4e6a
         with:
           command: html
           adr-path: docs/adr
