@@ -147,7 +147,7 @@ jobs:
       - name: Attest build provenance
         # v4.1.0
         uses: >-
-          actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32
+          actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373
         with:
           subject-path: dist/*
 
@@ -198,7 +198,7 @@ jobs:
       - name: Attest build provenance
         # v4.1.0
         uses: >-
-          actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32
+          actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373
         with:
           subject-path: dist/${{ steps.pack.outputs.name }}
       - name: Upload source artifact
@@ -243,7 +243,7 @@ jobs:
       - name: Install cargo-audit
         # v2.67.25
         uses: >-
-          taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9
+          taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6
         with:
           tool: cargo-audit
 
