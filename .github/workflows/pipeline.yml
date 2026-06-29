@@ -207,7 +207,7 @@ jobs:
       packages: read
     # zircote/.github main @ 77a87549 (merged 2026-06-16)
     uses: >-
-      zircote/.github/.github/workflows/reusable-trivy.yml@77a87549a65c6c978a0e87efe0168ed3517f7ca4
+      zircote/.github/.github/workflows/reusable-trivy.yml@aa00b2f09e8e42bd88cd002b441fcd6c46ecaff8
     with:
       image-ref: >-
         ghcr.io/${{ github.repository }}@${{
