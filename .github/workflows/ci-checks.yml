@@ -41,7 +41,7 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install Rust toolchain
         # master
@@ -60,7 +60,7 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install Rust toolchain
         # master
@@ -99,7 +99,7 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install Rust toolchain
         # master
@@ -133,7 +133,7 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install Rust toolchain
         # master
@@ -165,12 +165,12 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install cargo-deny
         # v2.67.25
         uses: >-
-          taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9
+          taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf
         with:
           tool: cargo-deny
 
@@ -183,7 +183,7 @@ jobs:
     steps:
       - name: Checkout repository
         # v6.0.2
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install Rust toolchain
         # master
