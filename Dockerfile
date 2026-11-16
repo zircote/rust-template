@@ -45,7 +45,7 @@ RUN cargo build --release
 # Runtime stage - distroless/static (no glibc/openssl) for the static musl
 # binary. Pinned by digest (no :latest) to satisfy Scorecard
 # Pinned-Dependencies and Trivy DS-0001; Dependabot keeps the digest fresh.
-FROM gcr.io/distroless/static-debian12:nonroot@sha256:b7bb25d9f7c31d2bdd1982feb4dafcaf137703c7075dbe2febb41c24212b946f
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:aef9602f8710ec12bde19d593fed1f76c708531bb7aba205110f1029786ead7b
 
 # Copy the statically-linked binary from builder
 COPY --from=builder /app/target/release/rust_template /usr/local/bin/rust_template
