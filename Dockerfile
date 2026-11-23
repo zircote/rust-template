@@ -8,7 +8,7 @@
 # The :tag is kept alongside the digest for human readability; Dependabot's
 # docker ecosystem keeps the digest fresh. Refresh with:
 #   docker buildx imagetools inspect <image> --format '{{.Manifest.Digest}}'
-FROM rust:1.100-alpine@sha256:de1e0058543a81ed7b046629167db587c67a94bdf37cce14eb27f0ec83baaffb AS builder
+FROM rust:1.100-alpine@sha256:8d0e82abfdf9a38071e07cabc5afba4ddbe077631a80e4e742a760c38beadc33 AS builder
 
 # musl-dev + build-base provide the C toolchain/assembler for any C-backed
 # crates a downstream project adds (e.g. ring); the musl target links them
